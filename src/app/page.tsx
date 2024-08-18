@@ -231,19 +231,25 @@ function Inner() {
 
 export default function Scene() {
   return (
-    <Canvas
-      orthographic
-      camera={{ zoom: 1200 }}
-      className="cursor-crosshair !w-svw !h-svh">
-      <Environment preset="studio" />
+    <main>
+      <Canvas
+        orthographic
+        camera={{ zoom: 1200 }}
+        className="cursor-crosshair !w-svw !h-svh">
+        <Environment preset="studio" />
 
-      <Suspense>
-        <Inner />
-        <Effects />
-        <Controls />
-      </Suspense>
+        <Suspense>
+          <Inner />
+          <Effects />
+          <Controls />
+        </Suspense>
 
-      <Stats />
-    </Canvas>
+        <Stats />
+      </Canvas>
+
+      <footer className="z-10 fixed inset-x-0 bottom-0 p-5 text-center text-xs text-white text-opacity-75">
+        alt + (l|r)mb to (rotate|pan)
+      </footer>
+    </main>
   )
 }
