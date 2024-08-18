@@ -153,16 +153,6 @@ function Inner() {
     ref.current.geometry.attributes.color.needsUpdate = true
   })
 
-  useEffect(() => {
-    ref.current.traverse(function fn(j) {
-      if (!j.name?.startsWith('obj')) {
-        return
-      }
-
-      console.log(j)
-    })
-  }, [])
-
   return (
     <group ref={groupRef}>
       <Instances limit={PARTICLE_COUNT} {...{ ref }}>
