@@ -8,7 +8,7 @@ export default function Controls() {
     const ac = new AbortController()
     const { signal } = ac
 
-    ;['keyup', 'keydown'].forEach(evt =>
+    ;(['keyup', 'keydown'] as const).forEach(evt =>
       window.addEventListener(evt, e => set(e.altKey), { signal })
     )
 
