@@ -1,9 +1,12 @@
 'use client'
 
 import { OrbitControls } from '@react-three/drei'
+import { useThree } from '@react-three/fiber'
 import { useEffect, useState } from 'react'
+import * as THREE from 'three'
 
 export default function Controls() {
+  const { camera, size } = useThree()
   const [enabled, set] = useState<boolean>(false)
 
   useEffect(() => {
@@ -13,7 +16,11 @@ export default function Controls() {
     const handle = () => set(window.innerWidth <= 1024)
 
     ;(['keyup', 'keydown'] as const).forEach(evt =>
-      window.addEventListener(evt, e => set(e.altKey), { signal })
+      window.addEventListener(
+        evt,
+        e => set(window.innerWidth >= 1024 && e.altKey),
+        { signal }
+      )
     )
 
     window.addEventListener('resize', handle, { signal })
@@ -21,6 +28,19 @@ export default function Controls() {
 
     return () => ac?.abort()
   }, [])
+
+  useEffect(() => {
+    const aspect = size.width / size.height
+    const frustumSize = 1
+
+    if (camera instanceof THREE.OrthographicCamera) {
+      camera.left = (frustumSize * aspect) / -2
+      camera.right = (frustumSize * aspect) / 2
+      camera.top = frustumSize / 2
+      camera.bottom = frustumSize / -2
+      camera.updateProjectionMatrix()
+    }
+  }, [size, camera])
 
   return (
     <OrbitControls

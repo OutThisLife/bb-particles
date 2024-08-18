@@ -221,10 +221,7 @@ function Inner() {
 export default function Scene() {
   return (
     <main>
-      <Canvas
-        orthographic
-        camera={{ zoom: 1200 }}
-        className="cursor-crosshair !w-svw !h-svh">
+      <Canvas orthographic className="cursor-crosshair !w-svw !h-svh">
         <Environment preset="studio" />
 
         <Suspense>
