@@ -73,7 +73,6 @@ function Inner() {
         const toCenter = new THREE.Vector3().subVectors(center, i.position)
         const dist3D = toCenter.length()
 
-        // change opacity based on dist3d
         colorsRef.current[n * 4 + 3] = mapLinear(
           i.velocity.length() * 5,
           0,
