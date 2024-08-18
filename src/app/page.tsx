@@ -1,6 +1,6 @@
 'use client'
 
-import { Controls, Cursor, Effects } from '@/scene'
+import { Controls, Effects } from '@/scene'
 import { rand, random2D } from '@/utils'
 import {
   Environment,
@@ -212,8 +212,6 @@ function Inner() {
           />
         </mesh>
       </Float>
-
-      <Cursor />
     </group>
   )
 }

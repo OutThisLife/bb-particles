@@ -1,3 +1,4 @@
+import { Edges } from '@react-three/drei'
 import { MeshProps, useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import * as THREE from 'three'
@@ -36,12 +37,8 @@ export default function Cursor(props: MeshProps) {
   return (
     <mesh {...{ ref, ...props }}>
       <boxGeometry args={[0.05, 0.05, 0.05]} />
-      <meshBasicMaterial
-        transparent
-        opacity={0.05}
-        depthWrite={false}
-        wireframe
-      />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      <Edges linewidth={2} threshold={15} opacity={0.1} transparent />
     </mesh>
   )
 }
