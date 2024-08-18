@@ -1,13 +1,12 @@
 'use client'
 
-import { Cursor, Effects } from '@/scene'
+import { Controls, Cursor, Effects } from '@/scene'
 import { rand, random2D } from '@/utils'
 import {
   Environment,
   Float,
   Instance,
   Instances,
-  OrbitControls,
   Stats
 } from '@react-three/drei'
 import { Canvas, useFrame } from '@react-three/fiber'
@@ -240,10 +239,10 @@ export default function Scene() {
 
       <Suspense>
         <Inner />
+        <Effects />
+        <Controls />
       </Suspense>
 
-      <Effects />
-      <OrbitControls />
       <Stats />
     </Canvas>
   )
