@@ -3,31 +3,45 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --columns: 40;
+
+  --vsq: calc(0.5dvw + 0.5dvh);
+  --cell: calc((var(--vsq) * 50) / var(--columns));
+  --pad-scale: 3;
+  --pad: calc(var(--vsq) * var(--pad-scale));
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+* {
+  @apply 
+  box-border m-0 p-0
+  focus:outline-none;
+}
+
+html {
+  @apply 
+  font-sans tracking-tight
+  selection:bg-pink-400 selection:text-white;
+
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  font-feature-settings: 'ss01' on, 'calt' off;
+  font-size: 0.875rem;
+  font-size: clamp(0.8125rem, 0.75rem + 0.2vw, 1rem);
+  line-height: 1.75;
+  overflow-anchor: none;
+  scroll-behavior: smooth;
+  text-rendering: optimizeLegibility;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  @apply bg-black text-white;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+img, video, svg {
+  @apply max-w-full h-auto;
+}
+
+strong {
+  @apply font-medium;
 }
