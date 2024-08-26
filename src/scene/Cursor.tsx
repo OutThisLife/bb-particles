@@ -21,11 +21,11 @@ export default function Cursor(props: MeshProps) {
     } else if (camera instanceof THREE.OrthographicCamera) {
       raycaster.setFromCamera(pointer, camera)
 
-      ref.current?.position.copy(
+      ref.current?.position?.copy(
         raycaster.ray.intersectPlane(
           new THREE.Plane(new THREE.Vector3(0, 0, 1), 0),
           new THREE.Vector3()
-        )
+        ) || new THREE.Vector3()
       )
     }
   })
