@@ -44,8 +44,6 @@ export default function Controls() {
   return (
     <OrbitControls
       makeDefault
-      maxPolarAngle={Math.PI / 2.2}
-      minPolarAngle={0}
       {...{ enablePan: enabled, enableRotate: enabled }}
     />
   )

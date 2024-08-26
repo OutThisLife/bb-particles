@@ -1,4 +1,4 @@
-import { rand, rand3d } from '@/utils'
+import { rand, rand2d, rand3d } from '@/utils'
 import { Float, Instance, Instances } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { lazy, useEffect, useMemo, useRef } from 'react'
@@ -6,11 +6,11 @@ import * as THREE from 'three'
 import { mapLinear } from 'three/src/math/MathUtils.js'
 
 const MAX_V = 0.001
-const PARTICLE_COUNT = 3e3
+const PARTICLE_COUNT = 5e3
 
 class Particle {
-  position = rand3d()
-  velocity = rand3d().multiplyScalar(0.5)
+  position = new THREE.Vector3().set(rand(-1, 1), rand(-1, 1), rand(-1, 1))
+  velocity = rand3d()
   scale = new THREE.Vector3().setScalar(rand(0.0005, 0.0015))
   opacity = rand(0.5, 1)
   force = new THREE.Vector3()
@@ -35,12 +35,10 @@ class Particle {
       const toCenter = new THREE.Vector3().subVectors(center, this.position)
       const dist3D = toCenter.length()
 
-      if (dist3D <= r + 2) {
-        const dir = toCenter.normalize()
-
+      if (dist3D <= r + 0.1) {
         if (!bbox.containsPoint(this.position)) {
-          if (dist3D < 0.01) {
-            this.force.add(dir.multiplyScalar(0.000003))
+          if (dist3D < 0.2) {
+            this.force.add(toCenter.normalize().multiplyScalar(0.001))
           }
 
           return
@@ -53,7 +51,7 @@ class Particle {
         ).clampLength(0, r)
 
         const tanForce = new THREE.Vector3()
-          .crossVectors(new THREE.Vector3(0, 1, 1), m)
+          .crossVectors(new THREE.Vector3(0, 1, 0), m)
           .normalize()
           .multiplyScalar(r * 0.0002)
 
@@ -73,22 +71,23 @@ class Particle {
         this.force
           .add(tanForce)
           .add(radForce)
-          .lerp(rand3d().multiplyScalar(0.00003), 0.5)
+          .multiplyScalar(dist3D * 0.000001)
+          .lerp(rand2d().multiplyScalar(0.00003), 0.5)
 
         if (this.velocity.length() > MAX_V * 0.95) {
           this.velocity.add(
             new THREE.Vector3()
               .subVectors(this.original!, this.position)
               .normalize()
-              .multiplyScalar(0.0001)
+              .multiplyScalar(0.000001)
           )
         }
       }
     })
 
     this.velocity
-      .add(this.force)
-      .add(rand3d().multiplyScalar(0.0000053))
+      .add(this.force.multiplyScalar(dt + 1))
+      .add(rand2d().multiplyScalar(0.0000053))
       .multiplyScalar(0.99)
       .clampLength(0, MAX_V)
 
@@ -172,7 +171,7 @@ export default function Scene() {
         rotationIntensity={5}
         floatIntensity={0}
         rotation={[0, Math.PI / 3, Math.PI / 2.5]}
-        position={[0.1, 0, 0.2]}>
+        position={[0.3, 0, 0.2]}>
         <mesh>
           <boxGeometry args={[0.1, 0.1, 0.1, 4, 1, 4]} />
           <meshBasicMaterial
