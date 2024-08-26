@@ -6,13 +6,14 @@ import * as THREE from 'three'
 import { mapLinear } from 'three/src/math/MathUtils.js'
 
 const MAX_V = 0.001
-const PARTICLE_COUNT = 1e4
+const PARTICLE_COUNT = 3e3
 
 class Particle {
   position = rand3d()
   velocity = rand3d().multiplyScalar(0.5)
   scale = new THREE.Vector3().setScalar(rand(0.0005, 0.0015))
   opacity = rand(0.5, 1)
+  force = new THREE.Vector3()
   original?: THREE.Vector3
 
   constructor() {
@@ -20,8 +21,7 @@ class Particle {
   }
 
   update(dt: number, obstacles: THREE.Object3D[]) {
-    const force = new THREE.Vector3()
-
+    this.force = new THREE.Vector3()
     this.opacity = mapLinear(this.velocity.length() * 5, 0, MAX_V, 0.035, 1)
 
     obstacles.forEach(j => {
@@ -35,15 +35,15 @@ class Particle {
       const toCenter = new THREE.Vector3().subVectors(center, this.position)
       const dist3D = toCenter.length()
 
-      if (dist3D <= r + 0.02) {
+      if (dist3D <= r + 2) {
         const dir = toCenter.normalize()
 
         if (!bbox.containsPoint(this.position)) {
           if (dist3D < 0.01) {
-            force.add(dir.multiplyScalar(0.000003))
+            this.force.add(dir.multiplyScalar(0.000003))
           }
 
-          // return
+          return
         }
 
         const m = new THREE.Vector3(
@@ -70,7 +70,7 @@ class Particle {
             )
           )
 
-        force
+        this.force
           .add(tanForce)
           .add(radForce)
           .lerp(rand3d().multiplyScalar(0.00003), 0.5)
@@ -87,7 +87,7 @@ class Particle {
     })
 
     this.velocity
-      .add(force.multiplyScalar(dt * 4))
+      .add(this.force)
       .add(rand3d().multiplyScalar(0.0000053))
       .multiplyScalar(0.99)
       .clampLength(0, MAX_V)
