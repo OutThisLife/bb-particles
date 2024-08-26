@@ -31,13 +31,12 @@ export default function Controls() {
 
   useEffect(() => {
     const aspect = size.width / size.height
-    const frustumSize = 1
 
     if (camera instanceof THREE.OrthographicCamera) {
-      camera.left = (frustumSize * aspect) / -2
-      camera.right = (frustumSize * aspect) / 2
-      camera.top = frustumSize / 2
-      camera.bottom = frustumSize / -2
+      camera.left = (1 * aspect) / -2
+      camera.right = (1 * aspect) / 2
+      camera.top = 1 / 2
+      camera.bottom = 1 / -2
       camera.updateProjectionMatrix()
     }
   }, [size, camera])
@@ -45,8 +44,6 @@ export default function Controls() {
   return (
     <OrbitControls
       makeDefault
-      maxPolarAngle={Math.PI / 2.2}
-      minPolarAngle={0}
       {...{ enablePan: enabled, enableRotate: enabled }}
     />
   )
