@@ -169,7 +169,7 @@ export default function Scene() {
       <Float
         speed={2}
         rotationIntensity={5}
-        floatIntensity={0}
+        floatIntensity={0.1}
         rotation={[0, Math.PI / 3, Math.PI / 2.5]}
         position={[0.3, 0, 0.2]}>
         <mesh>
@@ -208,6 +208,8 @@ export default function Scene() {
           />
         </mesh>
       </Float>
+
+      <Cursor />
     </group>
   )
 }
