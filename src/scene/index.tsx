@@ -171,7 +171,7 @@ export default function Scene() {
         rotationIntensity={5}
         floatIntensity={0.1}
         rotation={[0, Math.PI / 3, Math.PI / 2.5]}
-        position={[0.3, 0, 0.2]}>
+        position={[0.1, -0.2, 0.2]}>
         <mesh>
           <boxGeometry args={[0.1, 0.1, 0.1, 4, 1, 4]} />
           <meshBasicMaterial
@@ -184,10 +184,11 @@ export default function Scene() {
       </Float>
 
       <Float
+        name="sphere"
         speed={2}
         floatIntensity={0.2}
         rotationIntensity={6}
-        position={[-0.3, 0.1, 0.4]}>
+        position={[-0.1, 0.1, 0.4]}>
         <mesh>
           <sphereGeometry args={[0.04, 32, 32]} />
           <meshBasicMaterial

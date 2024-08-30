@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import * as THREE from 'three'
 
 export default function Controls() {
-  const { camera, size } = useThree()
+  const { camera, controls, size, scene } = useThree()
   const [enabled, set] = useState<boolean>(false)
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export default function Controls() {
       camera.bottom = 1 / -2
       camera.updateProjectionMatrix()
     }
-  }, [size, camera])
+  }, [size, camera, controls])
 
   return (
     <OrbitControls
