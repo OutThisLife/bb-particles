@@ -5,7 +5,7 @@ import { lazy, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import Particle from './Particle'
 
-const PARTICLE_COUNT = 5e3
+const PARTICLE_COUNT = 1e4
 let frameCount = 0
 
 export default function Scene() {
