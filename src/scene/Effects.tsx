@@ -9,7 +9,7 @@ import {
 extend({ EffectComposer, RenderPass, AfterimagePass })
 
 export default function Effects() {
-  const { gl, scene, camera, viewport } = useThree()
+  const { gl, scene, camera } = useThree()
   const fx = useMemo(() => new EffectComposer(gl), [gl])
 
   useEffect(() => {
