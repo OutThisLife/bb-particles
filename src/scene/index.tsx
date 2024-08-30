@@ -1,103 +1,12 @@
-import { rand, rand2d, rand3d } from '@/utils'
+import { rand } from '@/utils'
 import { Float, Instance, Instances } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { lazy, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { mapLinear } from 'three/src/math/MathUtils.js'
+import Particle from './Particle'
 
-const MAX_V = 0.001
 const PARTICLE_COUNT = 5e3
-
-class Particle {
-  position = new THREE.Vector3().set(rand(-1, 1), rand(-1, 1), rand(-1, 1))
-  velocity = rand3d()
-  scale = new THREE.Vector3().setScalar(rand(0.0005, 0.0015))
-  opacity = rand(0.5, 1)
-  force = new THREE.Vector3()
-  original?: THREE.Vector3
-
-  constructor() {
-    this.original = this.position.clone()
-  }
-
-  update(dt: number, obstacles: THREE.Object3D[]) {
-    this.force = new THREE.Vector3()
-    this.opacity = mapLinear(this.velocity.length() * 5, 0, MAX_V, 0.035, 1)
-
-    obstacles.forEach(j => {
-      j.updateMatrixWorld()
-
-      const bbox = new THREE.Box3().setFromObject(j)
-      const center = bbox.getCenter(new THREE.Vector3())
-      const size = bbox.getSize(new THREE.Vector3())
-      const r = Math.max(...size.toArray()) * 0.5
-
-      const toCenter = new THREE.Vector3().subVectors(center, this.position)
-      const dist3D = toCenter.length()
-
-      if (dist3D <= r + 0.1) {
-        if (!bbox.containsPoint(this.position)) {
-          if (dist3D < 0.2) {
-            this.force.add(toCenter.normalize().multiplyScalar(0.001))
-          }
-
-          return
-        }
-
-        const m = new THREE.Vector3(
-          this.position.x - center.x,
-          this.position.y - center.y,
-          this.position.z - center.z
-        ).clampLength(0, r)
-
-        const tanForce = new THREE.Vector3()
-          .crossVectors(new THREE.Vector3(0, 1, 0), m)
-          .normalize()
-          .multiplyScalar(r * 0.0002)
-
-        const radForce = new THREE.Vector3()
-          .subVectors(this.position, center)
-          .normalize()
-          .multiplyScalar(
-            mapLinear(
-              m.length(),
-              0,
-              r,
-              0.00005,
-              (Math.random() < 0.5 ? 1 : -1) * 0.0001
-            )
-          )
-
-        this.force
-          .add(tanForce)
-          .add(radForce)
-          .multiplyScalar(dist3D * 0.000001)
-          .lerp(rand2d().multiplyScalar(0.00003), 0.5)
-
-        if (this.velocity.length() > MAX_V * 0.95) {
-          this.velocity.add(
-            new THREE.Vector3()
-              .subVectors(this.original!, this.position)
-              .normalize()
-              .multiplyScalar(0.000001)
-          )
-        }
-      }
-    })
-
-    this.velocity
-      .add(this.force.multiplyScalar(dt + 1))
-      .add(rand2d().multiplyScalar(0.0000053))
-      .multiplyScalar(0.99)
-      .clampLength(0, MAX_V)
-
-    this.position
-      .add(this.velocity)
-      .setX(((this.position.x + 1) % 2) - 1)
-      .setY(((this.position.y + 1) % 2) - 1)
-      .setZ(((this.position.z + 1) % 2) - 1)
-  }
-}
+let frameCount = 0
 
 export default function Scene() {
   const ref = useRef<THREE.InstancedMesh>(null!)
@@ -105,7 +14,7 @@ export default function Scene() {
   const colorsRef = useRef<Float32Array>(new Float32Array(PARTICLE_COUNT * 4))
 
   const tmp = useMemo(() => new THREE.Object3D(), [])
-  const obstacles = useRef<THREE.Object3D[]>([])
+  const objects = useRef<THREE.Object3D[]>([])
 
   const particles = useMemo(
     () => Array.from({ length: PARTICLE_COUNT }, () => new Particle()),
@@ -129,17 +38,15 @@ export default function Scene() {
 
     if (ref.current) {
       const [, ...rest] = groupRef.current.children
-      obstacles.current = rest
+      objects.current = rest
     }
   }, [particles])
 
-  useFrame(({ clock }) => {
-    const dt = clock.getDelta()
-
+  useFrame((_, dt) => {
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       const p = particles[i]
 
-      p.update(dt, obstacles.current)
+      p.update(dt, objects.current, frameCount++)
       colorsRef.current[i * 4 + 3] = p.opacity!
 
       tmp.position.copy(p.position)
