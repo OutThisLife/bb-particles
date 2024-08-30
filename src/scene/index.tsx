@@ -208,8 +208,6 @@ export default function Scene() {
           />
         </mesh>
       </Float>
-
-      <Cursor />
     </group>
   )
 }
