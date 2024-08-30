@@ -5,7 +5,7 @@ import { lazy, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import Particle from './Particle'
 
-const PARTICLE_COUNT = 1e4
+const PARTICLE_COUNT = 5e3
 let frameCount = 0
 
 export default function Scene() {
@@ -43,10 +43,11 @@ export default function Scene() {
   }, [particles])
 
   useFrame((_, dt) => {
+    frameCount++
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       const p = particles[i]
 
-      p.update(dt, objects.current, frameCount++)
+      p.update(dt, objects.current, frameCount)
       colorsRef.current[i * 4 + 3] = p.opacity!
 
       tmp.position.copy(p.position)

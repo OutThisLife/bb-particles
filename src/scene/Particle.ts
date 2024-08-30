@@ -4,13 +4,14 @@ import { mapLinear } from 'three/src/math/MathUtils.js'
 
 const MAX_V = 0.001
 const centerVec = new THREE.Vector3()
+const tanVec = new THREE.Vector3()
 const radVec = new THREE.Vector3()
 
 export default class Particle {
   position = new THREE.Vector3().set(rand(-1, 1), rand(-1, 1), rand(-1, 1))
   velocity = rand3d()
   scale = new THREE.Vector3().setScalar(rand(0.0005, 0.0015))
-  opacity = rand(0.5, 1)
+  opacity = 0
   force = new THREE.Vector3()
   original?: THREE.Vector3
 
@@ -20,7 +21,8 @@ export default class Particle {
 
   update(dt: number, objects: ParticleObj[], frame: number) {
     this.force.set(0, 0, 0)
-    this.opacity = mapLinear(this.velocity.length() * 5, 0, MAX_V, 0.035, 1)
+
+    this.opacity = mapLinear(this.velocity.length(), 0, MAX_V, 0, 1)
 
     if (!(frame % 2)) {
       for (const obj of objects) {
@@ -40,6 +42,8 @@ export default class Particle {
         centerVec.subVectors(center, this.position)
         const dist3D = centerVec.length()
 
+        this.opacity *= 2 - dist3D
+
         if (dist3D <= r + 0.1) {
           if (!obj.boundingBox.containsPoint(this.position)) {
             if (dist3D < 0.2) {
@@ -57,7 +61,7 @@ export default class Particle {
             )
             .clampLength(0, r)
 
-          const tanForce = new THREE.Vector3()
+          const tanForce = tanVec
             .crossVectors(new THREE.Vector3(0, 1, 0), radVec)
             .normalize()
             .multiplyScalar(r * 0.0002)
@@ -85,6 +89,7 @@ export default class Particle {
               .subVectors(this.original!, this.position)
               .normalize()
               .multiplyScalar(0.000001)
+
             this.velocity.add(centerVec)
           }
         }
@@ -102,6 +107,8 @@ export default class Particle {
       .setX(((this.position.x + 1) % 2) - 1)
       .setY(((this.position.y + 1) % 2) - 1)
       .setZ(((this.position.z + 1) % 2) - 1)
+
+    this.opacity = Math.min(1, Math.max(0.1, this.opacity))
   }
 }
 

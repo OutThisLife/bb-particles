@@ -14,7 +14,7 @@ export default function Effects() {
 
   useEffect(() => {
     fx.addPass(new RenderPass(scene, camera))
-    fx.addPass(new AfterimagePass(0.8))
+    fx.addPass(new AfterimagePass(0.9))
   }, [fx])
 
   useFrame(() => void fx?.render(), 1)
