@@ -5,7 +5,7 @@ import { lazy, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import Particle from './Particle'
 
-const PARTICLE_COUNT = 5e3
+const PARTICLE_COUNT = 1e4
 let frameCount = 0
 
 export default function Scene() {
@@ -43,10 +43,7 @@ export default function Scene() {
   }, [particles])
 
   useFrame((_, dt) => {
-    frameCount++
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      const p = particles[i]
-
+    particles.forEach((p, i) => {
       p.update(dt, objects.current, frameCount)
       colorsRef.current[i * 4 + 3] = p.opacity!
 
@@ -55,11 +52,13 @@ export default function Scene() {
       tmp.updateMatrix()
 
       ref.current?.setMatrixAt(i, tmp.matrix)
-    }
+    })
 
     if (ref.current) {
       ref.current.instanceMatrix.needsUpdate = true
       ref.current.geometry.attributes.color.needsUpdate = true
+
+      frameCount++
     }
   })
 
