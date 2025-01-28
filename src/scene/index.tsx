@@ -15,9 +15,8 @@ const Controls = lazy(() => import('./Controls'))
 const PARTICLE_COUNT = 1e4
 
 function Inner() {
-  const { mixFactor, pointSize } = useControls({
-    mixFactor: { value: 0, min: 0, max: 1, step: 0.01 },
-    pointSize: { value: 4.0, min: 0, max: 100, step: 0.01 }
+  const { mixFactor } = useControls({
+    mixFactor: { value: 0, min: 0, max: 1, step: 0.01 }
   })
 
   const uniforms = useMemo(
@@ -124,50 +123,54 @@ function Inner() {
   useEffect(() => {
     gsap.to(uniforms.mixFactor, {
       value: mixFactor,
-      duration: 0.6,
-      ease: 'power2.out'
+      duration: 1,
+      ease: 'none'
     })
-
-    gsap.to(uniforms.pointSize, {
-      value: pointSize,
-      duration: 0.5,
-      ease: 'power2.out'
-    })
-  }, [mixFactor, pointSize, uniforms])
+  }, [mixFactor, uniforms])
 
   useFrame(({ clock }) => {
     uniforms.uTime.value = clock.getElapsedTime()
   })
 
   return (
-    <points scale={5.5} castShadow receiveShadow>
-      <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={PARTICLE_COUNT}
-          array={new Float32Array(PARTICLE_COUNT * 3)}
-          itemSize={3}
-        />
+    <group scale={5.5} castShadow receiveShadow>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <points
+          key={i}
+          position={[0, 0, 0]}
+          rotation={[0, 0, (Math.PI / 2) * i]}>
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              count={PARTICLE_COUNT}
+              array={new Float32Array(PARTICLE_COUNT * 3)}
+              itemSize={3}
+            />
 
-        <bufferAttribute
-          attach="attributes-particleIndex"
-          count={PARTICLE_COUNT}
-          array={Float32Array.from(
-            Array.from({ length: PARTICLE_COUNT }, (_, i) => i / PARTICLE_COUNT)
-          )}
-          itemSize={1}
-        />
-      </bufferGeometry>
+            <bufferAttribute
+              attach="attributes-particleIndex"
+              count={PARTICLE_COUNT}
+              array={Float32Array.from(
+                Array.from(
+                  { length: PARTICLE_COUNT },
+                  (_, i) => i / PARTICLE_COUNT
+                )
+              )}
+              itemSize={1}
+            />
+          </bufferGeometry>
 
-      <shaderMaterial
-        key={`${fragmentShader + vertexShader}-${mixFactor}-${pointSize}`}
-        glslVersion={THREE.GLSL3}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        {...{ vertexShader, fragmentShader, uniforms }}
-      />
-    </points>
+          <shaderMaterial
+            key={`${fragmentShader + vertexShader}-${mixFactor}`}
+            glslVersion={THREE.GLSL3}
+            transparent
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            {...{ vertexShader, fragmentShader, uniforms }}
+          />
+        </points>
+      ))}
+    </group>
   )
 }
 
