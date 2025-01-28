@@ -1,14 +1,20 @@
-import { useFrame } from '@react-three/fiber'
+'use client'
+
+import { Stats } from '@react-three/drei'
+import { Canvas, useFrame } from '@react-three/fiber'
 import gsap from 'gsap'
 import { useControls } from 'leva'
-import { lazy, useEffect, useMemo } from 'react'
+import { lazy, Suspense, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import fragmentShader from './frag.fs'
 import vertexShader from './vert.vs'
 
+const Effects = lazy(() => import('./Effects'))
+const Controls = lazy(() => import('./Controls'))
+
 const PARTICLE_COUNT = 1e4
 
-export default function Scene() {
+function Inner() {
   const { mixFactor, pointSize } = useControls({
     mixFactor: { value: 0, min: 0, max: 1, step: 0.01 },
     pointSize: { value: 4.0, min: 0, max: 100, step: 0.01 }
@@ -20,14 +26,17 @@ export default function Scene() {
       positionsTexture: { value: new THREE.Texture() },
       numKeyframes: { value: 2 },
       keyframeStep: { value: 1.0 / 2 },
-      pointSize: { value: 4 },
+      pointSize: { value: 1.86 },
       uTime: { value: 0 }
     }),
     []
   )
 
   useEffect(() => {
-    const resample = (geometry: THREE.BufferGeometry, targetCount: number) => {
+    const resample = (
+      geometry: THREE.BufferGeometry,
+      targetCount = PARTICLE_COUNT
+    ) => {
       const attr = geometry.attributes.position
       const count = attr.count
       const r = new Float32Array(targetCount * 3)
@@ -45,10 +54,31 @@ export default function Scene() {
     }
 
     const geometries = [
-      resample(new THREE.BoxGeometry(1, 1, 1, 32, 32, 32), PARTICLE_COUNT),
-      resample(new THREE.SphereGeometry(0.2, 32, 32), PARTICLE_COUNT),
-      resample(new THREE.ConeGeometry(0.2, 1, 32, 32), PARTICLE_COUNT),
-      resample(new THREE.CylinderGeometry(0.2, 1, 1, 32, 32), PARTICLE_COUNT)
+      resample(new THREE.BoxGeometry(1, 1, 1, 64, 64, 64)),
+      resample(new THREE.ConeGeometry(0.5, 1, 64, 64)),
+      resample(new THREE.CylinderGeometry(0.5, 0.5, 1, 64, 64)),
+      resample(new THREE.SphereGeometry(0.5, 64, 64)),
+      resample(new THREE.TorusGeometry(0.5, 0.2, 64, 64)),
+      resample(new THREE.TorusKnotGeometry(0.3, 0.1, 64, 64)),
+      resample(new THREE.OctahedronGeometry(0.7, 0)),
+      resample(new THREE.DodecahedronGeometry(0.5, 0)),
+      resample(new THREE.IcosahedronGeometry(0.5, 0)),
+      resample(new THREE.TetrahedronGeometry(0.8, 0)),
+      resample(new THREE.PlaneGeometry(1, 1, 64, 64)),
+      resample(new THREE.RingGeometry(0.2, 0.5, 64, 64)),
+      resample(
+        new THREE.TubeGeometry(
+          new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-0.5, -0.5, 0),
+            new THREE.Vector3(0, 0.5, 0),
+            new THREE.Vector3(0.5, -0.5, 0)
+          ]),
+          64,
+          0.1,
+          8,
+          false
+        )
+      )
     ]
 
     const maxV = Math.max(...geometries.map(g => g.attributes.position.count))
@@ -110,7 +140,7 @@ export default function Scene() {
   })
 
   return (
-    <points>
+    <points scale={5.5} castShadow receiveShadow>
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
@@ -133,11 +163,58 @@ export default function Scene() {
         key={`${fragmentShader + vertexShader}-${mixFactor}-${pointSize}`}
         glslVersion={THREE.GLSL3}
         transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
         {...{ vertexShader, fragmentShader, uniforms }}
       />
     </points>
   )
 }
 
-export const Effects = lazy(() => import('./Effects'))
-export const Controls = lazy(() => import('./Controls'))
+export default function Scene() {
+  return (
+    <Canvas
+      key={Math.random()}
+      camera={{ position: [0, 0, 10], fov: 30 }}
+      style={{ width: '100vw', height: '100vh' }}>
+      <color attach="background" args={['#000000']} />
+      <fog attach="fog" args={['#000000', 5, 30]} />
+
+      <ambientLight intensity={0.1} />
+
+      <spotLight
+        position={[10, 10, 10]}
+        angle={0.15}
+        penumbra={1}
+        intensity={1}
+        castShadow
+      />
+
+      <spotLight
+        position={[-10, 10, -10]}
+        angle={0.15}
+        penumbra={1}
+        intensity={0.5}
+        castShadow
+      />
+
+      <Suspense>
+        <Inner />
+        <Controls />
+      </Suspense>
+
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]} receiveShadow>
+        <planeGeometry args={[100, 100]} />
+        <meshStandardMaterial
+          color="#ffffff"
+          emissive="#ffffff"
+          emissiveIntensity={0.02}
+          roughness={0.5}
+          metalness={0.9}
+        />
+      </mesh>
+
+      <Stats />
+    </Canvas>
+  )
+}

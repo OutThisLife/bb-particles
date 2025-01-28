@@ -1,26 +1,9 @@
-'use client'
-
-import Scene, { Controls } from '@/scene'
-import { Environment, Stats } from '@react-three/drei'
-import { Canvas } from '@react-three/fiber'
-import { Suspense } from 'react'
+import Scene from '@/scene'
 
 export default function Index() {
   return (
     <main>
-      <Canvas
-        key={Math.random()}
-        orthographic
-        className="cursor-crosshair !w-svw !h-svh">
-        <Environment preset="city" />
-
-        <Suspense>
-          <Scene />
-          <Controls />
-        </Suspense>
-
-        <Stats />
-      </Canvas>
+      <Scene />
 
       <footer className="z-10 fixed inset-x-0 bottom-0 p-5 text-center text-xs text-white text-opacity-75">
         alt + (l|r)mb to (rotate|pan)
