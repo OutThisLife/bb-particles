@@ -1,6 +1,6 @@
 'use client'
 
-import Scene, { Controls, Effects } from '@/scene'
+import Scene, { Controls } from '@/scene'
 import { Environment, Stats } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
@@ -8,12 +8,14 @@ import { Suspense } from 'react'
 export default function Index() {
   return (
     <main>
-      <Canvas orthographic className="cursor-crosshair !w-svw !h-svh">
-        <Environment preset="studio" />
+      <Canvas
+        key={Math.random()}
+        orthographic
+        className="cursor-crosshair !w-svw !h-svh">
+        <Environment preset="city" />
 
         <Suspense>
           <Scene />
-          <Effects />
           <Controls />
         </Suspense>
 
