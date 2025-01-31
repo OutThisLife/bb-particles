@@ -1,6 +1,6 @@
 uniform float uTime;
 uniform vec2 uResolution;
-uniform sampler2D uPrevFrame;
+uniform sampler2D uChannel0;
 
 in vec2 vUv;
 
@@ -35,29 +35,37 @@ float fbm(vec2 x) {
   return v;
 }
 
-mat2 rotate2d(float angle) {
+mat2 rot2d(float angle) {
   return mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
 }
 
 void main() {
-  vec2 st = gl_FragCoord.xy / uResolution;
-  vec2 uv = vUv;
+  // vec2 st = gl_FragCoord.xy / uResolution;
+  // vec2 uv = vUv;
 
-  float t = uTime * .1;
-  vec4 fbo = texture(uPrevFrame, uv);
+  vec2 st = (vUv * 2. - 1.) / normalize(uResolution);
+  vec2 uv = gl_FragCoord.xy / uResolution.xy;
 
-  float scale = exp(sin(t));
+  float t = uTime * .5;
+  vec4 fbo = texture(uChannel0, uv);
 
-  // Center and scale coordinates
-  vec2 q = ((st - 0.5) * .2) + 0.5;
+  vec4 col;
 
-  float d = fbm((st - t) + fbm(q + fbm(q * q)));
-  d = clamp(d, 0., 1.);
-  d = max(d, fbm(q * q * q));
+  {
+    vec2 q = st;
+    q *= rot2d(t);
 
-  vec3 col = vec3(d * 30., d, d * 10.) * .1;
-  col *= .5 * mix(fbo.rgb, col, .01);
-  // col = mix(fbo.rgb, vec3(d, 0, 0), col.r);
+    float d = fbm(st * 1. + fbm(q * 30.));
+    d = step(d, fbm(q * q * q));
+    // d += 1. - step(.5, length(((st * 4.) - (4. / 2.)) - (t)));
+    // d = mix(d, step(.5, 1. - d), fbm(fbo.rr * .5));
+    d = clamp(d, 0., 1.);
 
-  gl_FragColor = vec4(col, 1);
+    col = mix(col, vec4(vec3(1), 1), 1. - d);
+    col = mix(col, fbo, .5);
+    // col *= .5 * mix(fbo.rgb, col, 1.);
+    // col = mix(fbo.rgb, vec3(d, 0, 0), col.r);
+  }
+
+  gl_FragColor = clamp(col, 0., 1.);
 }
