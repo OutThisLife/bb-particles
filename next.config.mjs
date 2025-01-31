@@ -3,11 +3,26 @@ export default {
   transpilePackages: ['three'],
   typescript: { ignoreBuildErrors: true },
   eslint: { ignoreDuringBuilds: true },
-  webpack(config) {
-    config.module.rules.push({
-      test: /\.(vs|fs)$/,
-      use: ['raw-loader']
-    })
-    return config
-  }
+  webpack: cfg => ({
+    ...cfg,
+    module: {
+      ...cfg.module,
+      rules: [
+        ...cfg.module.rules,
+        {
+          test: /\.(glsl|vs|fs|vert|frag)$/,
+          exclude: /node_modules/,
+          use: [
+            'raw-loader',
+            {
+              loader: 'glslify-loader',
+              options: {
+                transform: [['glslify-hex'], ['glslify-import']]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  })
 }
