@@ -124,18 +124,20 @@ void main() {
   vec2 uv = gl_FragCoord.xy / Rpx.xy;
 
   float t = uTime;
+  vec2 uvt =
+      vec2(fbm(vec2(t * 0.5, 23.4)), fbm(vec2(t * 0.5, 42.1))) * 2.0 - 1.0;
 
-  vec4 fbo = texture(uChannel0, uv);
+  vec4 fbo = saturate(texture(uChannel0, uv));
   vec4 col;
 
 #if PASS == 0
   {
-    vec2 q = (st * 20.) / (20. * .5);
+    vec2 q = (st * .8);
     q.x *= R.z;
 
-    float d = fbm(q - t);
-    d = .1 / length(q - vec2(sin(t), cos(t)));
-    d = pow(d, 2.);
+    float d = max(fbm(st * 20. - vec2(0, t)), fbm(st * 20. + vec2(0, t)));
+    d = mix(1. - d, .1 / length(q - uvt), 1.);
+    d = pow(d, 1.2);
 
     col = mix(col, vec4(1, 0, 0, 1), d);
     col = mix(col, fbo, .99);
@@ -144,21 +146,22 @@ void main() {
 
 #if PASS == 1
   {
-    float d = fbm(.1 / atan(st, fbo.aa));
-    d *= fbo.a * 10.;
+    float dd = max(fbo.r, max(fbo.g, max(fbo.b, fbo.a))) * .23;
+
+    // generate verticle noisy stripes
+    float d = dd / fbm((st + (st * rot2d(fbo.a))).x * 30.);
+    d = 1. - atan(d, SM(0., 1. - fbo.r, d));
     d = saturate(d);
+    d *= rand(uv * 100.);
 
-    col = mix(col, vec4(1, 0, .8, 1. - d), d);
-    col = mix(col, fbo, .89);
-
-    d = .2 / fbm(saturate(1. / (atan(st, fbo.aa) * 4.)));
-    d = saturate(d);
-    // d = max(d, fbo.a);
-
-    col = mix(col, vec4(1, 0, 1, SM(0., 1., fbo.a * 100.)), d);
+    col = mix(col, vec4(1, 0, .8, 1. - abs((st * rot2d(t * fbo.a)).y * 3.)), d);
+    col = mix(col, vec4(.5, .5, .2, 1), d);
   }
 #endif
 
+  // col = mix(col, vec4(0, 0, 1, .1), 1. - rand(uv * 100.));
+  col.rgb = mix(col.rgb, hue(uvt.x + fbo.a), fbo.a * .3);
   col.rgb = pow(col.rgb, vec3(1. / 2.2));
+
   gl_FragColor = saturate(col);
 }

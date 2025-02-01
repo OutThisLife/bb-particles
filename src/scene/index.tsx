@@ -1,9 +1,10 @@
 'use client'
 
-import { Stats, useAspect, useFBO } from '@react-three/drei'
+import { Billboard, Stats, useAspect, useFBO } from '@react-three/drei'
 import { Canvas, ShaderMaterialProps, useFrame } from '@react-three/fiber'
 import { Suspense, useMemo, useRef } from 'react'
 import * as THREE from 'three'
+import Controls from './Controls'
 import fragmentShader from './frag.fs'
 import vertexShader from './vert.vs'
 
@@ -139,7 +140,7 @@ function Inner() {
   )
 
   return (
-    <>
+    <Billboard>
       <mesh {...{ scale }}>
         <planeGeometry />
         <shaderMaterial {...args} defines={{ PASS: 0 }} />
@@ -149,7 +150,7 @@ function Inner() {
         <planeGeometry />
         <shaderMaterial {...args} defines={{ PASS: 1 }} />
       </mesh>
-    </>
+    </Billboard>
   )
 }
 
@@ -160,6 +161,7 @@ export default function Scene() {
         <FBOPipeline
           passes={[{ defines: { PASS: 0 } }, { defines: { PASS: 1 } }]}
         />
+        <Controls />
       </Suspense>
 
       <Stats />
