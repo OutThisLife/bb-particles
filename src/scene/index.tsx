@@ -116,18 +116,16 @@ function Inner() {
     repetitions,
     pointSize,
     scaleFactor,
-    alphaFactor,
-    rotationFactor
+    alphaFactor
   } = useControls({
     mirrorX: { value: false },
     mirrorY: { value: false },
     pointSize: { value: 2, min: 1, max: 10, step: 1 },
-    autoplay: { value: false },
+    autoplay: { value: true },
     manualProgress: { value: 0, min: 0, max: 1, step: 1.0 / len },
     repetitions: { value: 20, min: 1, max: 50, step: 1 },
     alphaFactor: { value: 0.01, min: 0, max: 1, step: 0.01 },
-    scaleFactor: { value: 0.06, min: 0, max: 1, step: 0.01 },
-    rotationFactor: { value: 100, min: -360, max: 360, step: 1 }
+    scaleFactor: { value: 0.06, min: 0, max: 1, step: 0.01 }
   })
 
   useEffect(() => {
@@ -205,13 +203,13 @@ function Inner() {
 
     gsap.to(uniforms.uAlpha, {
       value: alphaFactor,
-      duration: 0.4,
+      duration: 0,
       ease: 'none'
     })
 
     gsap.to(uniforms.uPointSize, {
       value: pointSize,
-      duration: 0.4,
+      duration: 0,
       ease: 'none'
     })
   }, [manualProgress, pointSize, alphaFactor])
