@@ -12,7 +12,7 @@ export default function Effects() {
     const composer = new EffectComposer(gl)
 
     composer.addPass(new RenderPass(scene, camera))
-    composer.addPass(new CustomAfterPass(0.999))
+    composer.addPass(new CustomAfterPass(0.1))
 
     return composer
   }, [gl, scene, camera])

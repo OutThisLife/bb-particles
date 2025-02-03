@@ -47,7 +47,7 @@ const uniforms = {
 
 function Iteration({ index: i, ...props }: { index: number } & GroupProps) {
   const { repetitions, scaleFactor, rotationFactor } = useControls({
-    repetitions: { value: 20, min: 1, max: 50, step: 1 },
+    repetitions: { value: 20, min: 1, max: 1e3, step: 1 },
     scaleFactor: { value: 0.06, min: 0, max: 1, step: 0.01 },
     rotationFactor: { value: 100, min: -360, max: 360, step: 1 }
   })
@@ -100,6 +100,7 @@ function Iteration({ index: i, ...props }: { index: number } & GroupProps) {
           glslVersion={THREE.GLSL3}
           transparent
           depthTest={false}
+          blending={THREE.AdditiveBlending}
           {...{ vertexShader, fragmentShader, uniforms }}
         />
       </points>

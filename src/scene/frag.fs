@@ -18,8 +18,7 @@ void main() {
   float alpha = 1. - smoothstep(.1, .5, length(st - .5));
   alpha = vAlpha;
 
-  vec4 col = vec4(1);
-  col.a = alpha;
+  vec4 col = vec4(vec3(1), alpha);
 
   // col.rgb *= 1. - length(vPosition - .5) * 3.;
 
@@ -28,7 +27,7 @@ void main() {
   }
 
 #ifndef DEPTH_PASS
-  // col.rgb *= texture(tDiffuse, st).r;
+  col.rgb *= texture(tDiffuse, gl_PointCoord / uResolution).r;
 #endif
 
   fragColor = saturate(col);
