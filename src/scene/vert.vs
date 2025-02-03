@@ -1,46 +1,45 @@
-uniform float mixFactor;
-uniform sampler2D positionsTexture;
-uniform int numKeyframes;
-uniform float keyframeStep;
-uniform float pointSize;
+uniform float uProgress;
+uniform sampler2D uChannel0;
+uniform int uSteps;
+uniform float uStep;
 uniform float uTime;
+uniform float uPointSize;
+uniform float uAlpha;
 
 in vec2 particleIndex;
+in float layerIndex;
 
-out float vTwinkle;
+out float vAlpha;
 out vec2 vUv;
+out vec3 vPosition;
 
 void main() {
-  float totalSteps = float(numKeyframes - 1);
-  float floatIndex = mixFactor * totalSteps;
+  float idx = uProgress * float(uSteps);
 
-  int prevIndex = int(floor(floatIndex));
-  int nextIndex = min(prevIndex + 1, numKeyframes - 1);
+  float curIdx = floor(particleIndex.x * float(uSteps));
+  int prevIdx = int(floor(idx));
+  int nextIdx = min(prevIdx + 1, uSteps);
 
-  float totalParticles = float(textureSize(positionsTexture, 0).x);
+  float totalParticles = float(textureSize(uChannel0, 0).x);
   float uvX = floor(particleIndex.x * totalParticles) / totalParticles;
 
-  vec3 prev =
-      texture(positionsTexture, vec2(uvX, float(prevIndex) * keyframeStep)).xyz;
+  vec3 prev = texture(uChannel0, vec2(uvX, float(prevIdx) * uStep)).xyz;
+  vec3 next = texture(uChannel0, vec2(uvX, float(nextIdx) * uStep)).xyz;
 
-  vec3 next =
-      texture(positionsTexture, vec2(uvX, float(nextIndex) * keyframeStep)).xyz;
+  vec3 q = mix(prev, next, fract(idx));
 
-  vec3 morphedPosition = mix(prev, next, fract(floatIndex));
-
-  float floatSpeed = 1.;
-  float floatAmount = particleIndex.x * 0.005;
+  float speed = 1.;
+  float strength = particleIndex.x * 0.005;
   float offset = particleIndex.x * 100.0 + particleIndex.y * 100.0;
 
-  float floatingY = sin(uTime * floatSpeed + offset) * floatAmount;
-  float floatingX = sin(uTime * floatSpeed * 0.8 + offset) * floatAmount * 0.5;
-  float floatingZ = cos(uTime * floatSpeed * 1.2 + offset) * floatAmount * 0.5;
+  // q.x += sin(uTime * speed * 0.8 + offset) * strength * 0.5;
+  // q.y += sin(uTime * speed + offset) * strength;
+  // q.z += cos(uTime * speed * 1.2 + offset) * strength * 0.5;
 
-  morphedPosition += vec3(floatingX, floatingY, floatingZ);
+  gl_PointSize = uPointSize;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(q, 1);
 
-  gl_PointSize = 4.;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(morphedPosition, 1.0);
-
+  vAlpha = (1. - curIdx / float(uSteps)) * (uAlpha * 2.);
+  vPosition = q;
   vUv = uv;
-  vTwinkle = sin(uTime * 2.0 + offset * 5.) * .5 + .5;
 }

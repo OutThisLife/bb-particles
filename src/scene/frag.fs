@@ -1,27 +1,35 @@
 uniform float uTime;
 uniform sampler2D tDiffuse;
 uniform sampler2D uShadowMap;
+uniform vec2 uResolution;
 
-in float vTwinkle;
+#ifndef saturate
+#define saturate(x) clamp(x, 0., 1.)
+#endif
+
+in float vAlpha;
 in vec2 vUv;
+in vec3 vPosition;
+
 out vec4 fragColor;
 
 void main() {
-  vec2 st = gl_PointCoord;
-  float dist = length(st - vec2(.5));
-  float alpha = 1. - smoothstep(.2, .4, dist);
+  vec2 st = gl_FragCoord.xy / uResolution;
+  float alpha = 1. - smoothstep(.1, .5, length(st - .5));
+  alpha = vAlpha;
 
-  // Discard fully transparent pixels so they don't cast shadows
+  vec4 col = vec4(1);
+  col.a = alpha;
+
+  // col.rgb *= 1. - length(vPosition - .5) * 3.;
+
   if (alpha < 0.01) {
-    discard;
+    // discard;
   }
 
-#ifdef DEPTH_PASS
-  // During shadow pass, just output depth
-  fragColor = vec4(1.0);
-#else
-  // Normal render pass
-  fragColor =
-      vec4((vec3(.9, .95, 1) * vTwinkle) * texture(tDiffuse, vUv).r, alpha);
+#ifndef DEPTH_PASS
+  // col.rgb *= texture(tDiffuse, st).r;
 #endif
+
+  fragColor = saturate(col);
 }
