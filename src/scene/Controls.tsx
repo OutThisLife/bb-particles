@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import * as THREE from 'three'
 
 export default function Controls() {
-  const { camera, controls, size, scene } = useThree()
+  const { camera, controls, scene, size } = useThree()
   const [enabled, set] = useState<boolean>(false)
 
   useEffect(() => {
@@ -37,7 +37,7 @@ export default function Controls() {
       camera.right = (1 * aspect) / 2
       camera.top = 1 / 2
       camera.bottom = 1 / -2
-      // camera.zoom = 1.25
+      camera.zoom = aspect * 0.3
 
       camera.updateProjectionMatrix()
     }
