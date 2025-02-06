@@ -1,10 +1,5 @@
 import * as THREE from 'three'
 
-export const clamp = (value: number, min = 0, max = 1) =>
-  Math.max(min, Math.min(max, value))
-
-export const saturate = (value: number) => clamp(value)
-
 export const rand = (min = 0, max = 1) => Math.random() * (max - min) + min
 
 export const rand2d = () => {
@@ -22,3 +17,5 @@ export const rand3d = () => {
     Math.cos(b)
   ).normalize()
 }
+
+export * from './obc'

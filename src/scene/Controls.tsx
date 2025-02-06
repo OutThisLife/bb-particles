@@ -13,7 +13,21 @@ export default function Controls() {
     const ac = new AbortController()
     const { signal } = ac
 
-    const handle = () => set(window.innerWidth <= 1024)
+    const handle = () => {
+      set(window.innerWidth <= 1024)
+
+      const aspect = size.width / size.height
+
+      if (camera instanceof THREE.OrthographicCamera) {
+        camera.left = (1 * aspect) / -2
+        camera.right = (1 * aspect) / 2
+        camera.top = 1 / 2
+        camera.bottom = 1 / -2
+        camera.zoom = aspect * 0.3
+
+        camera.updateProjectionMatrix()
+      }
+    }
 
     ;(['keyup', 'keydown'] as const).forEach(evt =>
       window.addEventListener(
@@ -27,20 +41,6 @@ export default function Controls() {
     window.requestAnimationFrame(handle)
 
     return () => ac?.abort()
-  }, [])
-
-  useEffect(() => {
-    const aspect = size.width / size.height
-
-    if (camera instanceof THREE.OrthographicCamera) {
-      camera.left = (1 * aspect) / -2
-      camera.right = (1 * aspect) / 2
-      camera.top = 1 / 2
-      camera.bottom = 1 / -2
-      camera.zoom = aspect * 0.3
-
-      camera.updateProjectionMatrix()
-    }
   }, [size, camera, controls])
 
   return (
