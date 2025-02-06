@@ -1,5 +1,6 @@
 'use client'
 
+import { useSmoothControls } from '@/hooks/useSmoothControls'
 /**
  * choose geometry
  * set repetition [x] numbers
@@ -26,7 +27,6 @@ import {
 import { Canvas } from '@react-three/fiber'
 import { Bloom, EffectComposer, SMAA } from '@react-three/postprocessing'
 import gsap from 'gsap'
-import { buttonGroup, useControls } from 'leva'
 import { lazy, Suspense, useCallback } from 'react'
 import * as THREE from 'three'
 
@@ -38,140 +38,70 @@ const originOptions = [
   'top-right',
   'bottom-left',
   'bottom-right'
-]
+] as const
 
 function CustomGeometry({ url }: { url: string }) {
   const { scene } = useGLTF(url)
+
   return <primitive object={scene} />
 }
 
 function Inner() {
   const objFile = useStore($object)
 
-  const [
-    { repetitions, scaleFactor, rotationFactor, alphaFactor },
-    setScalars
-  ] = useControls('Scalars', () => ({
-    repetitions: { value: 50, min: 1, max: 100, step: 1 },
-    alphaFactor: { value: 0.5, min: 0, max: 1, step: 0.01 },
-    scaleFactor: { value: 0.03, min: 0, max: 1, step: 0.01 },
-    rotationFactor: { value: -0.08, min: -1, max: 1, step: 0.01 },
-    ' ': buttonGroup({
-      randomize: () =>
-        setScalars({
-          repetitions: Math.round(gsap.utils.random(1, 100)),
-          alphaFactor: gsap.utils.random(0, 1, 0.01),
-          scaleFactor: gsap.utils.random(0, 1, 0.01),
-          rotationFactor: gsap.utils.random(-1, 1, 0.01)
-        }),
-      reset: () =>
-        setScalars({
-          repetitions: 50,
-          alphaFactor: 0.5,
-          scaleFactor: 0.03,
-          rotationFactor: -0.08
-        })
+  const { repetitions, scaleFactor, rotationFactor, alphaFactor } =
+    useSmoothControls('Scalars', {
+      repetitions: { value: 50, min: 1, max: 100, step: 1 },
+      alphaFactor: { value: 0.5, min: 0, max: 1, step: 0.01 },
+      scaleFactor: { value: 0.03, min: 0, max: 1, step: 0.01 },
+      rotationFactor: { value: -0.08, min: -1, max: 1, step: 0.01 }
     })
-  }))
 
-  const [{ mirrorX, mirrorY }, setReflection] = useControls(
-    'Reflection',
-    () => ({
-      mirrorX: { value: 0.01, min: -2, max: 2, step: 0.01 },
-      mirrorY: { value: 0.01, min: -2, max: 2, step: 0.01 },
-      ' ': buttonGroup({
-        randomize: () =>
-          setReflection({
-            mirrorX: gsap.utils.random(-2, 2, 0.01),
-            mirrorY: gsap.utils.random(-2, 2, 0.01)
-          }),
-        reset: () => setReflection({ mirrorX: 0.01, mirrorY: 0.01 })
-      })
-    })
-  )
+  const { mirrorX, mirrorY } = useSmoothControls('Reflection', {
+    mirrorX: { value: 0.01, min: -2, max: 2, step: 0.01 },
+    mirrorY: { value: 0.01, min: -2, max: 2, step: 0.01 }
+  })
 
-  const [{ xStep, yStep, origin, stepFactor }, setSpatial] = useControls(
-    'Spatial',
-    () => ({
-      origin: { options: originOptions, value: 'bottom-left' },
-      xStep: { value: 0.54, min: -2, max: 2, step: 0.01 },
-      yStep: { value: 0.39, min: -2, max: 2, step: 0.01 },
-      stepFactor: { value: 0.16, min: 0, max: 2, step: 0.01 },
-      ' ': buttonGroup({
-        randomize: () =>
-          setSpatial({
-            origin:
-              originOptions[Math.floor(Math.random() * originOptions.length)],
-            xStep: gsap.utils.random(-2, 2, 0.01),
-            yStep: gsap.utils.random(-2, 2, 0.01),
-            stepFactor: gsap.utils.random(0.01, 1, 0.01)
-          }),
-        reset: () =>
-          setSpatial({
-            origin: 'bottom-left',
-            xStep: 0.54,
-            yStep: 0.39,
-            stepFactor: 0.16
-          })
-      })
-    })
-  )
-  const [
-    { debug, thetaSegments, phiSegments, thetaStart, thetaEnd, radius },
-    setGeometry
-  ] = useControls(
-    'Geometry',
-    () => ({
-      debug: { value: false },
-      radius: { value: 0.94, min: 0.1, max: 0.99, step: 0.01 },
-      thetaSegments: { value: 100, min: 1, max: 100, step: 1 },
-      phiSegments: { value: 1, min: 1, max: 100, step: 1 },
-      thetaStart: { value: 0, min: 0, max: Math.PI * 2, step: 0.01 },
-      thetaEnd: { value: Math.PI * 2, min: 0, max: Math.PI * 2, step: 0.01 },
-      ' ': buttonGroup({
-        randomize: () =>
-          setGeometry({
-            thetaStart: gsap.utils.random(0, Math.PI * 2, 0.01),
-            thetaEnd: gsap.utils.random(0, Math.PI * 2, 0.01)
-          }),
-        reset: () => setGeometry({ thetaStart: 0, thetaEnd: Math.PI })
-      })
-    }),
-    { collapsed: true }
-  )
+  const { xStep, yStep, origin, stepFactor } = useSmoothControls('Spatial', {
+    origin: { options: originOptions, value: 'bottom-left' },
+    xStep: { value: 0.54, min: -2, max: 2, step: 0.01 },
+    yStep: { value: 0.39, min: -2, max: 2, step: 0.01 },
+    stepFactor: { value: 0.16, min: 0, max: 2, step: 0.01 }
+  })
 
-  const [
-    { blending, gradType, gradStops, gradColor1, gradColor2, color },
-    setMaterial
-  ] = useControls(
-    'Material',
-    () => ({
-      blending: {
-        options: ['None', 'Normal', 'Additive'],
-        value: 'Additive'
+  const { debug, thetaSegments, phiSegments, thetaStart, thetaEnd, radius } =
+    useSmoothControls(
+      'Geometry',
+      {
+        debug: { value: false },
+        radius: { value: 0.94, min: 0.1, max: 0.99, step: 0.01 },
+        thetaSegments: { value: 100, min: 1, max: 100, step: 1 },
+        phiSegments: { value: 1, min: 1, max: 100, step: 1 },
+        thetaStart: { value: 0, min: 0, max: Math.PI * 2, step: 0.01 },
+        thetaEnd: { value: Math.PI * 2, min: 0, max: Math.PI * 2, step: 0.01 }
       },
-      gradType: {
-        options: [GradientType.Radial, GradientType.Linear],
-        value: GradientType.Radial
+      { collapsed: true }
+    )
+
+  const { blending, gradType, gradStops, gradColor1, gradColor2, color } =
+    useSmoothControls(
+      'Material',
+      {
+        blending: {
+          options: ['None', 'Normal', 'Additive'],
+          value: 'Additive'
+        },
+        gradType: {
+          options: [GradientType.Radial, GradientType.Linear],
+          value: GradientType.Radial
+        },
+        color: { value: 'white' },
+        gradColor1: { value: 'white' },
+        gradColor2: { value: 'black' },
+        gradStops: { value: [0, 1], min: 0, max: 1, step: 0.01 }
       },
-      color: { value: 'white' },
-      gradColor1: { value: 'white' },
-      gradColor2: { value: 'black' },
-      gradStops: { value: [0, 1], min: 0, max: 1, step: 0.01 },
-      ' ': buttonGroup({
-        reset: () =>
-          setMaterial({
-            blending: 'Additive',
-            gradType: GradientType.Radial,
-            gradStops: [0, 1],
-            color: 'white',
-            gradColor1: 'white',
-            gradColor2: 'black'
-          })
-      })
-    }),
-    { collapsed: true }
-  )
+      { collapsed: true }
+    )
 
   const calcPosition = useCallback(
     (i: number) => {
