@@ -15,6 +15,8 @@
 
 # production
 /build
+/public/tmp/*
+!/public/tmp/.gitkeep
 
 # misc
 .DS_Store

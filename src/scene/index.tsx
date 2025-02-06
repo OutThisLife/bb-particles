@@ -11,7 +11,9 @@
 
 'use client'
 
+import { $object } from '@/store'
 import { obcAlpha } from '@/utils'
+import { useStore } from '@nanostores/react'
 import {
   GradientTexture,
   GradientType,
@@ -19,10 +21,11 @@ import {
   InstancedAttribute,
   Instances,
   InstancesProps,
-  Stats
+  Stats,
+  useGLTF
 } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
-import { EffectComposer, SMAA } from '@react-three/postprocessing'
+import { Bloom, EffectComposer, SMAA } from '@react-three/postprocessing'
 import gsap from 'gsap'
 import { buttonGroup, useControls } from 'leva'
 import { lazy, Suspense, useCallback } from 'react'
@@ -38,7 +41,14 @@ const originOptions = [
   'bottom-right'
 ]
 
+function CustomGeometry({ url }: { url: string }) {
+  const { scene } = useGLTF(url)
+  return <primitive object={scene} />
+}
+
 function Inner() {
+  const objFile = useStore($object)
+
   const [
     { repetitions, scaleFactor, rotationFactor, alphaFactor },
     setScalars
@@ -46,7 +56,7 @@ function Inner() {
     repetitions: { value: 50, min: 1, max: 100, step: 1 },
     alphaFactor: { value: 0.5, min: 0, max: 1, step: 0.01 },
     scaleFactor: { value: 0.03, min: 0, max: 1, step: 0.01 },
-    rotationFactor: { value: 0, min: -1, max: 1, step: 0.01 },
+    rotationFactor: { value: -0.08, min: -1, max: 1, step: 0.01 },
     ' ': buttonGroup({
       randomize: () =>
         setScalars({
@@ -60,7 +70,7 @@ function Inner() {
           repetitions: 50,
           alphaFactor: 0.5,
           scaleFactor: 0.03,
-          rotationFactor: 0
+          rotationFactor: -0.08
         })
     })
   }))
@@ -84,13 +94,10 @@ function Inner() {
   const [{ xStep, yStep, origin, stepFactor }, setSpatial] = useControls(
     'Spatial',
     () => ({
-      origin: {
-        options: originOptions,
-        value: 'top-left'
-      },
-      xStep: { value: 0.2, min: -2, max: 2, step: 0.01 },
-      yStep: { value: 0.2, min: -2, max: 2, step: 0.01 },
-      stepFactor: { value: 1, min: 0, max: 2, step: 0.01 },
+      origin: { options: originOptions, value: 'bottom-left' },
+      xStep: { value: 0.54, min: -2, max: 2, step: 0.01 },
+      yStep: { value: 0.39, min: -2, max: 2, step: 0.01 },
+      stepFactor: { value: 0.16, min: 0, max: 2, step: 0.01 },
       ' ': buttonGroup({
         randomize: () =>
           setSpatial({
@@ -102,10 +109,10 @@ function Inner() {
           }),
         reset: () =>
           setSpatial({
-            origin: 'top-left',
-            xStep: 0.2,
-            yStep: 0.2,
-            stepFactor: 1
+            origin: 'bottom-left',
+            xStep: 0.54,
+            yStep: 0.39,
+            stepFactor: 0.16
           })
       })
     })
@@ -117,11 +124,11 @@ function Inner() {
     'Geometry',
     () => ({
       debug: { value: false },
-      radius: { value: 0.99, min: 0.1, max: 0.99, step: 0.01 },
-      thetaSegments: { value: 64, min: 1, max: 100, step: 1 },
-      phiSegments: { value: 8, min: 1, max: 100, step: 1 },
+      radius: { value: 0.94, min: 0.1, max: 0.99, step: 0.01 },
+      thetaSegments: { value: 100, min: 1, max: 100, step: 1 },
+      phiSegments: { value: 1, min: 1, max: 100, step: 1 },
       thetaStart: { value: 0, min: 0, max: Math.PI * 2, step: 0.01 },
-      thetaEnd: { value: Math.PI, min: 0, max: Math.PI * 2, step: 0.01 },
+      thetaEnd: { value: Math.PI * 2, min: 0, max: Math.PI * 2, step: 0.01 },
       ' ': buttonGroup({
         randomize: () =>
           setGeometry({
@@ -203,9 +210,15 @@ function Inner() {
     <Instances {...args}>
       <InstancedAttribute name="opacity" defaultValue={0.02} />
 
-      <ringGeometry
-        args={[radius, 1, thetaSegments, phiSegments, thetaStart, thetaEnd]}
-      />
+      {objFile ? (
+        <Suspense fallback={null}>
+          <CustomGeometry url={objFile!} />
+        </Suspense>
+      ) : (
+        <ringGeometry
+          args={[radius, 1, thetaSegments, phiSegments, thetaStart, thetaEnd]}
+        />
+      )}
 
       <meshBasicMaterial
         transparent
@@ -244,9 +257,22 @@ function Inner() {
     return (
       <>
         <mesh>
-          <ringGeometry
-            args={[radius, 1, thetaSegments, phiSegments, thetaStart, thetaEnd]}
-          />
+          {objFile ? (
+            <Suspense>
+              <CustomGeometry url={objFile!} />
+            </Suspense>
+          ) : (
+            <ringGeometry
+              args={[
+                radius,
+                1,
+                thetaSegments,
+                phiSegments,
+                thetaStart,
+                thetaEnd
+              ]}
+            />
+          )}
 
           <meshBasicMaterial transparent>
             <GradientTexture
@@ -296,6 +322,13 @@ export default function Scene() {
 
         <EffectComposer multisampling={0}>
           <SMAA />
+
+          <Bloom
+            intensity={1.0}
+            luminanceThreshold={0.9}
+            luminanceSmoothing={0.025}
+            mipmapBlur={false}
+          />
         </EffectComposer>
       </Suspense>
 
