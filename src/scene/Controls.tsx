@@ -47,7 +47,7 @@ export default function Controls() {
     <OrbitControls
       makeDefault
       enableDamping
-      {...{ enablePan: enabled, enableRotate: enabled }}
+      {...{ enablePan: enabled, enableRotate: false }}
     />
   )
 }

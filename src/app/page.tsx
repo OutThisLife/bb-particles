@@ -11,7 +11,7 @@ export default function Index() {
           'z-10 fixed inset-x-0 bottom-0 p-5',
           'text-center text-xs text-white text-opacity-75'
         )}>
-        alt + (l|r)mb to (rotate|pan)
+        alt + (l|r)mb to pan :: mousewheel to zoom
       </footer>
     </main>
   )

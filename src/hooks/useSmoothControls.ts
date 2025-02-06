@@ -34,6 +34,8 @@ export function useSmoothControls<T extends Record<string, any>>(
                   onUpdate: () =>
                     update(st => ({ ...st, [k]: currentValues[k] }))
                 })
+              } else {
+                update(st => ({ ...st, [k]: e }))
               }
             }
           }

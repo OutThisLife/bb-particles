@@ -49,6 +49,17 @@ function CustomGeometry({ url }: { url: string }) {
 function Inner() {
   const objFile = useStore($object)
 
+  const { position, scale, rotation } = useSmoothControls(
+    'Scene',
+    {
+      position: { value: { x: 0, y: 0 }, min: -2, max: 2, step: 0.01 },
+      scale: { value: 1, min: 0, max: 2, step: 0.01 },
+      rotation: { value: 0, min: -Math.PI, max: Math.PI, step: 0.01 }
+    },
+    undefined,
+    0.01
+  )
+
   const { repetitions, scaleFactor, rotationFactor, alphaFactor } =
     useSmoothControls('Scalars', {
       repetitions: { value: 50, min: 1, max: 100, step: 1 },
@@ -172,7 +183,7 @@ function Inner() {
       {Array.from({ length: range }).map((_, i) => (
         <Instance
           key={i}
-          scale={Math.pow(1 - scaleFactor, i)}
+          scale={gsap.utils.clamp(0.01, 1, Math.pow(1 - scaleFactor, i))}
           position={calcPosition(i)}
           rotation={[0, 0, (360 * rotationFactor * (i + 1)) / 180]}
           // @ts-expect-error
@@ -182,10 +193,19 @@ function Inner() {
     </Instances>
   )
 
-  if (debug) {
-    return (
-      <>
-        <mesh>
+  const mx = mirrorX === 0.001 ? 0 : mirrorX
+  const my = mirrorY === 0.001 ? 0 : mirrorY
+
+  return (
+    <group
+      position={[position.x, position.y, 0]}
+      scale={[scale, scale, 1]}
+      rotation={[0, 0, rotation]}>
+      {debug ? (
+        <mesh
+          position={[position.x, position.y, 0]}
+          scale={[scale, scale, 1]}
+          rotation={[0, 0, rotation]}>
           {objFile ? (
             <Suspense>
               <CustomGeometry url={objFile!} />
@@ -211,24 +231,24 @@ function Inner() {
             />
           </meshBasicMaterial>
         </mesh>
-      </>
-    )
-  }
+      ) : (
+        <>
+          <Inner position={[mx, 0, 0]} />
 
-  const mx = mirrorX === 0.001 ? 0 : mirrorX
-  const my = mirrorY === 0.001 ? 0 : mirrorY
+          {mirrorX !== 0.0 && (
+            <Inner position={[-mx, 0, 0]} scale={[-1, 1, 1]} />
+          )}
 
-  return (
-    <>
-      <Inner position={[mx, 0, 0]} />
+          {mirrorY !== 0.0 && (
+            <Inner position={[mx, -my, 0]} scale={[1, -1, 1]} />
+          )}
 
-      {mirrorX !== 0.0 && <Inner position={[-mx, 0, 0]} scale={[-1, 1, 1]} />}
-      {mirrorY !== 0.0 && <Inner position={[mx, -my, 0]} scale={[1, -1, 1]} />}
-
-      {mirrorX !== 0.0 && mirrorY !== 0.0 && (
-        <Inner position={[-mx, -my, 0]} scale={[-1, -1, 1]} />
+          {mirrorX !== 0.0 && mirrorY !== 0.0 && (
+            <Inner position={[-mx, -my, 0]} scale={[-1, -1, 1]} />
+          )}
+        </>
       )}
-    </>
+    </group>
   )
 }
 
@@ -252,9 +272,9 @@ export default function Scene() {
           <SMAA />
 
           <Bloom
-            intensity={1.0}
-            luminanceThreshold={0.9}
-            luminanceSmoothing={0.025}
+            intensity={0.2}
+            luminanceThreshold={0.2}
+            luminanceSmoothing={0.01}
             mipmapBlur={false}
           />
         </EffectComposer>
