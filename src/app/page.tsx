@@ -39,7 +39,7 @@ export default function Index() {
           'z-10 fixed inset-x-0 bottom-0 p-5',
           'text-center text-xs text-white text-opacity-75'
         )}>
-        alt + (l|r)mb to (rotate|pan) &mdash; drag/drop to upload geometry
+        alt + (l|r)mb to (rotate|pan)
       </footer>
     </main>
   )
