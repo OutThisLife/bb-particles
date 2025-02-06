@@ -1,3 +1,5 @@
+'use client'
+
 /**
  * choose geometry
  * set repetition [x] numbers
@@ -8,9 +10,6 @@
  * - translucent gradient to create blur and lighting
  * - mirror X xor Y?
  */
-
-'use client'
-
 import { $object } from '@/store'
 import { obcAlpha } from '@/utils'
 import { useStore } from '@nanostores/react'
@@ -306,7 +305,6 @@ function Inner() {
 export default function Scene() {
   return (
     <Canvas
-      dpr={Math.max(window.devicePixelRatio, 2)}
       orthographic
       style={{ width: '100svw', height: '100svh' }}
       gl={{
