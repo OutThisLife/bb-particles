@@ -1,6 +1,5 @@
 'use client'
 
-import { useSmoothControls } from '@/hooks/useSmoothControls'
 /**
  * choose geometry
  * set repetition [x] numbers
@@ -11,6 +10,7 @@ import { useSmoothControls } from '@/hooks/useSmoothControls'
  * - translucent gradient to create blur and lighting
  * - mirror X xor Y?
  */
+import { useSmoothControls } from '@/hooks/useSmoothControls'
 import { $object } from '@/store'
 import { obcAlpha } from '@/utils'
 import { useStore } from '@nanostores/react'
@@ -27,7 +27,7 @@ import {
 import { Canvas } from '@react-three/fiber'
 import { Bloom, EffectComposer, SMAA } from '@react-three/postprocessing'
 import gsap from 'gsap'
-import { lazy, Suspense, useCallback } from 'react'
+import { lazy, Suspense, useCallback, useMemo } from 'react'
 import * as THREE from 'three'
 
 const Controls = lazy(() => import('./Controls'))
@@ -146,11 +146,9 @@ function Inner() {
     [origin, xStep, yStep, stepFactor]
   )
 
-  const Inner = ({ range = repetitions, ...args }: InstancesProps) => (
-    <Instances {...args}>
-      <InstancedAttribute name="opacity" defaultValue={0.02} />
-
-      {objFile ? (
+  const geometry = useMemo(
+    () =>
+      objFile ? (
         <Suspense fallback={null}>
           <CustomGeometry url={objFile!} />
         </Suspense>
@@ -158,39 +156,53 @@ function Inner() {
         <ringGeometry
           args={[radius, 1, thetaSegments, phiSegments, thetaStart, thetaEnd]}
         />
-      )}
+      ),
+    []
+  )
 
-      <meshBasicMaterial
-        transparent
-        alphaToCoverage
-        depthTest={false}
-        onBeforeCompile={obcAlpha}
-        blending={
-          {
-            None: THREE.NoBlending,
-            Normal: THREE.NormalBlending,
-            Additive: THREE.AdditiveBlending
-          }[blending]
-        }
-        {...{ color }}>
-        <GradientTexture
-          stops={gradStops}
-          colors={[gradColor1, gradColor2]}
-          type={gradType}
-        />
-      </meshBasicMaterial>
+  const Inner = ({ range = repetitions, ...args }: InstancesProps) => (
+    <>
+      <Instances visible={true} {...args}>
+        <InstancedAttribute name="opacity" defaultValue={0.02} />
 
-      {Array.from({ length: range }).map((_, i) => (
-        <Instance
-          key={i}
-          scale={gsap.utils.clamp(0.01, 1, Math.pow(1 - scaleFactor, i))}
-          position={calcPosition(i)}
-          rotation={[0, 0, (360 * rotationFactor * (i + 1)) / 180]}
-          // @ts-expect-error
-          opacity={gsap.utils.clamp(0.02, 1, Math.exp(-i * (1 - alphaFactor)))}
-        />
-      ))}
-    </Instances>
+        {geometry}
+
+        <meshBasicMaterial
+          transparent
+          alphaToCoverage
+          depthTest={false}
+          onBeforeCompile={obcAlpha}
+          blending={
+            {
+              None: THREE.NoBlending,
+              Normal: THREE.NormalBlending,
+              Additive: THREE.AdditiveBlending
+            }[blending]
+          }
+          {...{ color }}>
+          <GradientTexture
+            stops={gradStops}
+            colors={[gradColor1, gradColor2]}
+            type={gradType}
+          />
+        </meshBasicMaterial>
+
+        {Array.from({ length: range }).map((_, i) => (
+          <Instance
+            key={`instance-${i}`}
+            scale={gsap.utils.clamp(0.01, 1, Math.pow(1 - scaleFactor, i))}
+            position={calcPosition(i)}
+            rotation={[0, 0, (360 * rotationFactor * (i + 1)) / 180]}
+            // @ts-expect-error
+            opacity={gsap.utils.clamp(
+              0.04,
+              1,
+              Math.exp(-i * (1 - alphaFactor))
+            )}
+          />
+        ))}
+      </Instances>
+    </>
   )
 
   const mx = mirrorX === 0.001 ? 0 : mirrorX
