@@ -157,7 +157,7 @@ function Inner() {
           args={[radius, 1, thetaSegments, phiSegments, thetaStart, thetaEnd]}
         />
       ),
-    []
+    [objFile, radius, thetaSegments, phiSegments, thetaStart, thetaEnd]
   )
 
   const Inner = ({ range = repetitions, ...args }: InstancesProps) => (
