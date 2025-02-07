@@ -1,6 +1,6 @@
 import gsap from 'gsap'
 import { buttonGroup, useControls } from 'leva'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 
 export function useSmoothControls<T extends Record<string, any>>(
   label?: string,
@@ -10,29 +10,30 @@ export function useSmoothControls<T extends Record<string, any>>(
 ) {
   type R = { [K in keyof T]: T[K] extends { value: infer V } ? V : never }
 
-  const [currentValues, update] = useState<R>(
-    () =>
-      Object.fromEntries(
-        Object.entries(initialArgs ?? {}).map(([k, v]) => [k, v.value])
-      ) as R
+  const entries = useMemo(
+    () => Object.entries(initialArgs ?? {}),
+    [initialArgs]
+  )
+
+  const [args, update] = useState<R>(
+    () => Object.fromEntries(entries.map(([k, v]) => [k, v.value])) as R
   )
 
   const [, set] = useControls(
     label ?? 'Group',
     () => ({
       ...Object.fromEntries(
-        Object.entries(initialArgs ?? {}).map(([k, v]) => [
+        entries.map(([k, v]) => [
           k,
           {
             ...v,
             onChange: e => {
-              if (typeof e !== 'object' && currentValues[k] !== e) {
-                gsap.to(currentValues, {
+              if (typeof e !== 'object' && args[k] !== e) {
+                gsap.to(args, {
                   [k]: e,
                   duration,
                   ease: 'circ.out',
-                  onUpdate: () =>
-                    update(st => ({ ...st, [k]: currentValues[k] }))
+                  onUpdate: () => update(st => ({ ...st, [k]: args[k] }))
                 })
               } else {
                 update(st => ({ ...st, [k]: e }))
@@ -45,7 +46,7 @@ export function useSmoothControls<T extends Record<string, any>>(
         randomize: () =>
           set(
             Object.fromEntries(
-              Object.entries(initialArgs ?? {}).map(([k, v]) => [
+              entries.map(([k, v]) => [
                 k,
                 typeof v === 'object' && 'step' in v
                   ? gsap.utils.random(v.min, v.max, v.step)
@@ -54,19 +55,12 @@ export function useSmoothControls<T extends Record<string, any>>(
             )
           ),
         reset: () =>
-          set(
-            Object.fromEntries(
-              Object.entries(initialArgs ?? {}).map(([k, { value: v }]) => [
-                k,
-                v
-              ])
-            )
-          )
+          set(Object.fromEntries(entries.map(([k, { value: v }]) => [k, v])))
       })
     }),
     options,
     []
   )
 
-  return currentValues
+  return args
 }

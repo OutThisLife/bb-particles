@@ -62,7 +62,7 @@ function Inner() {
 
   const { repetitions, scaleFactor, rotationFactor, alphaFactor } =
     useSmoothControls('Scalars', {
-      repetitions: { value: 50, min: 1, max: 100, step: 1 },
+      repetitions: { value: 50, min: 1, max: 500, step: 1 },
       alphaFactor: { value: 0.5, min: 0, max: 1, step: 0.01 },
       scaleFactor: { value: 0.03, min: 0, max: 1, step: 0.01 },
       rotationFactor: { value: -0.08, min: -1, max: 1, step: 0.01 }
