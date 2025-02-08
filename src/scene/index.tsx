@@ -22,6 +22,7 @@ import {
   InstancedAttribute,
   Instances,
   InstancesProps,
+  Loader,
   Stats
 } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
@@ -49,6 +50,7 @@ function Inner() {
     {
       'upload (gltf, glb)': button(() => {
         const $input = document.createElement('input')
+
         $input.type = 'file'
         $input.accept = '.gltf,.glb'
         $input.style.display = 'none'
@@ -268,15 +270,15 @@ export default function Scene() {
         depth: false,
         powerPreference: 'high-performance'
       }}>
-      <Suspense>
+      <Suspense fallback={<Loader />}>
         <Inner />
-        <Controls />
-
-        <EffectComposer multisampling={0}>
-          <SMAA />
-        </EffectComposer>
       </Suspense>
 
+      <EffectComposer multisampling={0}>
+        <SMAA />
+      </EffectComposer>
+
+      <Controls />
       <Stats />
     </Canvas>
   )
