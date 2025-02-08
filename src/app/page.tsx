@@ -1,18 +1,11 @@
+import { Footer } from '@/components'
 import Scene from '@/scene'
-import clsx from 'clsx'
 
 export default function Index() {
   return (
     <main>
       <Scene />
-
-      <footer
-        className={clsx(
-          'z-10 fixed inset-x-0 bottom-0 p-5',
-          'text-center text-xs text-white text-opacity-75'
-        )}>
-        alt + (l|r)mb to pan :: mousewheel to zoom
-      </footer>
+      <Footer />
     </main>
   )
 }

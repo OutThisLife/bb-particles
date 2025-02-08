@@ -13,6 +13,7 @@
 import { useSmoothControls } from '@/hooks/useSmoothControls'
 import { $object } from '@/store'
 import { obcAlpha } from '@/utils'
+import { upload } from '@/utils/upload'
 import { useStore } from '@nanostores/react'
 import {
   GradientTexture,
@@ -21,13 +22,13 @@ import {
   InstancedAttribute,
   Instances,
   InstancesProps,
-  Stats,
-  useGLTF
+  Stats
 } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
-import { Bloom, EffectComposer, SMAA } from '@react-three/postprocessing'
+import { EffectComposer, SMAA } from '@react-three/postprocessing'
 import gsap from 'gsap'
-import { lazy, Suspense, useCallback, useMemo } from 'react'
+import { button } from 'leva'
+import { lazy, startTransition, Suspense, useCallback } from 'react'
 import * as THREE from 'three'
 
 const Controls = lazy(() => import('./Controls'))
@@ -40,24 +41,36 @@ const originOptions = [
   'bottom-right'
 ] as const
 
-function CustomGeometry({ url }: { url: string }) {
-  const { scene } = useGLTF(url)
-
-  return <primitive object={scene} />
-}
-
 function Inner() {
-  const objFile = useStore($object)
+  const gltf = useStore($object)
 
-  const { position, scale, rotation } = useSmoothControls(
+  const { debug, position, scale, rotation } = useSmoothControls(
     'Scene',
     {
+      'upload (gltf, glb)': button(() => {
+        const $input = document.createElement('input')
+        $input.type = 'file'
+        $input.accept = '.gltf,.glb'
+        $input.style.display = 'none'
+
+        $input.onchange = e => {
+          const file = (e.target as HTMLInputElement).files?.[0]
+
+          if (file) {
+            startTransition(() => upload(file))
+          }
+        }
+
+        document.body.appendChild($input)
+        $input.click()
+        $input.parentElement?.removeChild($input)
+      }),
+      debug: { value: false },
       position: { value: { x: 0, y: 0 }, min: -2, max: 2, step: 0.01 },
       scale: { value: 1, min: 0, max: 2, step: 0.01 },
       rotation: { value: 0, min: -Math.PI, max: Math.PI, step: 0.01 }
     },
-    undefined,
-    0.01
+    { duration: 0.01, onReset: () => $object.set(undefined) }
   )
 
   const { repetitions, scaleFactor, rotationFactor, alphaFactor } =
@@ -80,18 +93,27 @@ function Inner() {
     stepFactor: { value: 0.16, min: 0, max: 2, step: 0.01 }
   })
 
-  const { debug, thetaSegments, phiSegments, thetaStart, thetaEnd, radius } =
+  const { thetaSegments, phiSegments, thetaStart, thetaEnd, radius } =
     useSmoothControls(
       'Geometry',
       {
-        debug: { value: false },
         radius: { value: 0.94, min: 0.1, max: 0.99, step: 0.01 },
         thetaSegments: { value: 100, min: 1, max: 100, step: 1 },
         phiSegments: { value: 1, min: 1, max: 100, step: 1 },
         thetaStart: { value: 0, min: 0, max: Math.PI * 2, step: 0.01 },
-        thetaEnd: { value: Math.PI * 2, min: 0, max: Math.PI * 2, step: 0.01 }
+        thetaEnd: {
+          value: Math.PI * 2,
+          min: 0,
+          max: Math.PI * 2,
+          step: 0.01
+        }
       },
-      { collapsed: true }
+      {
+        collapsed: true,
+        render: () => !gltf,
+        onReset: () => $object.set(undefined)
+      },
+      [gltf]
     )
 
   const { blending, gradType, gradStops, gradColor1, gradColor2, color } =
@@ -113,6 +135,9 @@ function Inner() {
       },
       { collapsed: true }
     )
+
+  const mx = mirrorX === 0.001 ? 0 : mirrorX
+  const my = mirrorY === 0.001 ? 0 : mirrorY
 
   const calcPosition = useCallback(
     (i: number) => {
@@ -146,67 +171,52 @@ function Inner() {
     [origin, xStep, yStep, stepFactor]
   )
 
-  const geometry = useMemo(
-    () =>
-      objFile ? (
-        <Suspense fallback={null}>
-          <CustomGeometry url={objFile!} />
-        </Suspense>
-      ) : (
-        <ringGeometry
-          args={[radius, 1, thetaSegments, phiSegments, thetaStart, thetaEnd]}
-        />
-      ),
-    [objFile, radius, thetaSegments, phiSegments, thetaStart, thetaEnd]
+  const geometry = gltf ? (
+    gltf.map(i => <bufferGeometry key={i.uuid} {...i} />)
+  ) : (
+    <ringGeometry
+      args={[radius, 1, thetaSegments, phiSegments, thetaStart, thetaEnd]}
+    />
   )
 
   const Inner = ({ range = repetitions, ...args }: InstancesProps) => (
-    <>
-      <Instances visible={true} {...args}>
-        <InstancedAttribute name="opacity" defaultValue={0.02} />
+    <Instances {...args}>
+      <InstancedAttribute name="opacity" defaultValue={0.02} />
 
-        {geometry}
+      {geometry}
 
-        <meshBasicMaterial
-          transparent
-          alphaToCoverage
-          depthTest={false}
-          onBeforeCompile={obcAlpha}
-          blending={
-            {
-              None: THREE.NoBlending,
-              Normal: THREE.NormalBlending,
-              Additive: THREE.AdditiveBlending
-            }[blending]
-          }
-          {...{ color }}>
-          <GradientTexture
-            stops={gradStops}
-            colors={[gradColor1, gradColor2]}
-            type={gradType}
-          />
-        </meshBasicMaterial>
+      <meshBasicMaterial
+        transparent
+        alphaToCoverage
+        depthTest={false}
+        onBeforeCompile={obcAlpha}
+        blending={
+          {
+            None: THREE.NoBlending,
+            Normal: THREE.NormalBlending,
+            Additive: THREE.AdditiveBlending
+          }[blending]
+        }
+        {...{ color }}>
+        <GradientTexture
+          stops={gradStops}
+          colors={[gradColor1, gradColor2]}
+          type={gradType}
+        />
+      </meshBasicMaterial>
 
-        {Array.from({ length: range }).map((_, i) => (
-          <Instance
-            key={`instance-${i}`}
-            scale={gsap.utils.clamp(0.01, 1, Math.pow(1 - scaleFactor, i))}
-            position={calcPosition(i)}
-            rotation={[0, 0, (360 * rotationFactor * (i + 1)) / 180]}
-            // @ts-expect-error
-            opacity={gsap.utils.clamp(
-              0.04,
-              1,
-              Math.exp(-i * (1 - alphaFactor))
-            )}
-          />
-        ))}
-      </Instances>
-    </>
+      {Array.from({ length: range }).map((_, i) => (
+        <Instance
+          key={`instance-${i}`}
+          scale={gsap.utils.clamp(0.01, 1, Math.pow(1 - scaleFactor, i))}
+          position={calcPosition(i)}
+          rotation={[0, 0, (360 * rotationFactor * (i + 1)) / 180]}
+          // @ts-expect-error
+          opacity={gsap.utils.clamp(0.04, 1, Math.exp(-i * (1 - alphaFactor)))}
+        />
+      ))}
+    </Instances>
   )
-
-  const mx = mirrorX === 0.001 ? 0 : mirrorX
-  const my = mirrorY === 0.001 ? 0 : mirrorY
 
   return (
     <group
@@ -214,26 +224,8 @@ function Inner() {
       scale={[scale, scale, 1]}
       rotation={[0, 0, rotation]}>
       {debug ? (
-        <mesh
-          position={[position.x, position.y, 0]}
-          scale={[scale, scale, 1]}
-          rotation={[0, 0, rotation]}>
-          {objFile ? (
-            <Suspense>
-              <CustomGeometry url={objFile!} />
-            </Suspense>
-          ) : (
-            <ringGeometry
-              args={[
-                radius,
-                1,
-                thetaSegments,
-                phiSegments,
-                thetaStart,
-                thetaEnd
-              ]}
-            />
-          )}
+        <mesh>
+          {geometry}
 
           <meshBasicMaterial transparent>
             <GradientTexture
@@ -282,13 +274,6 @@ export default function Scene() {
 
         <EffectComposer multisampling={0}>
           <SMAA />
-
-          <Bloom
-            intensity={0.2}
-            luminanceThreshold={0.2}
-            luminanceSmoothing={0.01}
-            mipmapBlur={false}
-          />
         </EffectComposer>
       </Suspense>
 

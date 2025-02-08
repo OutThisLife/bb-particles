@@ -3,10 +3,10 @@ import { buttonGroup, useControls } from 'leva'
 import { useMemo, useState } from 'react'
 
 export function useSmoothControls<T extends Record<string, any>>(
-  label?: string,
-  initialArgs?: T,
-  options?: Parameters<typeof useControls>[2],
-  duration = 0.35
+  label: string,
+  initialArgs: T,
+  options?: UseSmoothControlsOptions,
+  dependencies?: Parameters<typeof useControls>[3]
 ) {
   type R = { [K in keyof T]: T[K] extends { value: infer V } ? V : never }
 
@@ -31,7 +31,7 @@ export function useSmoothControls<T extends Record<string, any>>(
               if (typeof e !== 'object' && args[k] !== e) {
                 gsap.to(args, {
                   [k]: e,
-                  duration,
+                  duration: options?.duration ?? 0.35,
                   ease: 'circ.out',
                   onUpdate: () => update(st => ({ ...st, [k]: args[k] }))
                 })
@@ -43,7 +43,7 @@ export function useSmoothControls<T extends Record<string, any>>(
         ])
       ),
       ' ': buttonGroup({
-        randomize: () =>
+        randomize: () => {
           set(
             Object.fromEntries(
               entries.map(([k, v]) => [
@@ -53,14 +53,25 @@ export function useSmoothControls<T extends Record<string, any>>(
                   : gsap.utils.random(v.min ?? 0, v.max ?? 1)
               ])
             )
-          ),
-        reset: () =>
+          )
+
+          options?.onRandomize?.()
+        },
+        reset: () => {
           set(Object.fromEntries(entries.map(([k, { value: v }]) => [k, v])))
+          options?.onReset?.()
+        }
       })
     }),
     options,
-    []
+    dependencies ?? []
   )
 
   return args
+}
+
+type UseSmoothControlsOptions = Parameters<typeof useControls>[2] & {
+  duration?: number
+  onReset?: () => void
+  onRandomize?: () => void
 }
