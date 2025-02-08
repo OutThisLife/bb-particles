@@ -89,7 +89,7 @@ function Inner() {
   })
 
   const { xStep, yStep, origin, stepFactor } = useSmoothControls('Spatial', {
-    origin: { options: originOptions, value: 'bottom-left' },
+    origin: { options: originOptions, value: 'center' },
     xStep: { value: 0.54, min: -2, max: 2, step: 0.01 },
     yStep: { value: 0.39, min: -2, max: 2, step: 0.01 },
     stepFactor: { value: 0.16, min: 0, max: 2, step: 0.01 }
