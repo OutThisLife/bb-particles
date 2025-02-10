@@ -130,11 +130,8 @@ function Inner() {
       {geometry}
 
       <meshBasicMaterial
-        transparent
         depthTest={false}
         depthWrite={false}
-        alphaToCoverage
-        alphaTest={0.01}
         onBeforeCompile={obcChain(obcAlpha, obcGradient)}
         blending={THREE.AdditiveBlending}
         // blending={THREE.CustomBlending}
