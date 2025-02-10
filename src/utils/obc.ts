@@ -62,7 +62,7 @@ export const obcGradient = (shader: WebGLProgramParametersWithUniforms) => {
       `
       #include <color_fragment>
 
-      float d = 1.0 - smoothstep(.2, .8, vPosition.y * .5 + .5);
+      float d = 1.0 - smoothstep(.0, .95, vPosition.y * .5 + .5);
 
       diffuseColor.rgb *= d;
       `

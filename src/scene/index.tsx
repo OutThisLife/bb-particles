@@ -27,13 +27,15 @@ import { Canvas } from '@react-three/fiber'
 import { EffectComposer, SMAA } from '@react-three/postprocessing'
 import gsap from 'gsap'
 import { button } from 'leva'
-import { startTransition, Suspense, useCallback, useEffect } from 'react'
+import { startTransition, Suspense } from 'react'
 import * as THREE from 'three'
 import Controls from './Controls'
 import * as Shapes from './Shapes'
 
 const originOptions = [
   'center',
+  'top-center',
+  'bottom-center',
   'top-left',
   'top-right',
   'bottom-left',
@@ -73,11 +75,11 @@ function Inner() {
       }),
       geometry: {
         options: ['ring', 'bar', 'arch', 'disc'],
-        value: 'disc'
+        value: 'ring'
       },
       debug: { value: false },
-      position: { value: { x: 0, y: 0 }, min: -2, max: 2, step: 0.01 },
-      scale: { value: 1, min: 0, max: 2, step: 0.01 },
+      position: { value: { x: 0, y: -0.5 }, min: -2, max: 2, step: 0.01 },
+      scale: { value: 0.85, min: 0, max: 2, step: 0.01 },
       rotation: { value: 0, min: -Math.PI, max: Math.PI, step: 0.01 }
     },
     { duration: 0.01, onReset: () => !!$object.get() && $object.set(undefined) }
@@ -85,62 +87,26 @@ function Inner() {
 
   const { repetitions, scaleFactor, rotationFactor, alphaFactor } =
     useSmoothControls('Scalars', {
-      repetitions: { value: 50, min: 1, max: 500, step: 1 },
-      alphaFactor: { value: 0.5, min: 0, max: 1, step: 0.01 },
-      scaleFactor: { value: 0.52, min: 0, max: 4, step: 0.01 },
-      rotationFactor: { value: -0.08, min: -1, max: 1, step: 0.01 }
+      repetitions: { value: 65, min: 1, max: 500, step: 1 },
+      alphaFactor: { value: 0.01, min: 0, max: 1, step: 0.01 },
+      scaleFactor: { value: 1.05, min: 0, max: 2, step: 0.01 },
+      rotationFactor: { value: 0, min: -1, max: 1, step: 0.01 }
     })
 
   const { mirrorX, mirrorY } = useSmoothControls('Reflection', {
-    mirrorX: { value: 0.01, min: -2, max: 2, step: 0.01 },
-    mirrorY: { value: 0.01, min: -2, max: 2, step: 0.01 }
+    mirrorX: { value: 0.85, min: -2, max: 2, step: 0.01 },
+    mirrorY: { value: -1.22, min: -2, max: 2, step: 0.01 }
   })
 
   const { xStep, yStep, origin, stepFactor } = useSmoothControls('Spatial', {
-    origin: { options: originOptions, value: 'center' },
-    xStep: { value: 0.54, min: -2, max: 2, step: 0.01 },
-    yStep: { value: 0.39, min: -2, max: 2, step: 0.01 },
-    stepFactor: { value: 0.16, min: 0, max: 2, step: 0.01 }
+    origin: { options: originOptions, value: 'top-center' },
+    xStep: { value: -0.55, min: -2, max: 2, step: 0.01 },
+    yStep: { value: -0.8, min: -2, max: 2, step: 0.01 },
+    stepFactor: { value: 0.13, min: 0, max: 2, step: 0.01 }
   })
 
   const mx = mirrorX === 0.001 ? 0 : mirrorX
   const my = mirrorY === 0.001 ? 0 : mirrorY
-
-  const calcPosition = useCallback(
-    (i: number) => {
-      const xs = xStep * (gltf ? 40 : 1)
-      const ys = yStep * (gltf ? 40 : 1)
-
-      const f = !(i % 2) ? -1 : 1
-      let x = i * xs * f
-      let y = i * ys * f
-
-      switch (origin) {
-        case 'top-left':
-          x = -1 + i * xs
-          y = 1 - i * ys
-          break
-
-        case 'top-right':
-          x = 1 - i * xs
-          y = 1 - i * ys
-          break
-
-        case 'bottom-left':
-          x = -1 + i * xs
-          y = -1 + i * ys
-          break
-
-        case 'bottom-right':
-          x = 1 - i * xs
-          y = -1 + i * ys
-          break
-      }
-
-      return new THREE.Vector3(x, y, 0).multiplyScalar(stepFactor / 10)
-    },
-    [gltf, origin, xStep, yStep, stepFactor]
-  )
 
   const geometry = gltf ? (
     gltf.map(i => <bufferGeometry key={i.uuid} {...i} />)
@@ -170,13 +136,35 @@ function Inner() {
       {Array.from({ length: range }).map((_, i) => (
         <Instance
           key={`instance-${i}`}
-          scale={gsap.utils.clamp(
-            0,
-            1,
-            Math.pow(1 - i / (range - 1), 1 / scaleFactor)
+          scale={gsap.utils.clamp(0, 4, Math.exp(-(i + 1) * (1 - scaleFactor)))}
+          position={(() => {
+            const xs = xStep * (gltf ? 15 : 1)
+            const ys = yStep * (gltf ? 15 : 1)
+
+            let x = i * xs
+            let y = i * ys
+
+            if (/top/i.test(origin)) {
+              y = 1 - y
+            } else if (/bottom/i.test(origin)) {
+              y = -1 + y
+            }
+
+            if (/left/i.test(origin)) {
+              x = -1 + x
+            } else if (/right/i.test(origin)) {
+              x = 1 - x
+            }
+
+            return new THREE.Vector3(x, y, 0).multiplyScalar(stepFactor)
+          })()}
+          rotation={new THREE.Euler().setFromVector3(
+            new THREE.Vector3(
+              0,
+              0,
+              (360 * rotationFactor * (i + 1)) / 180
+            ).multiplyScalar(i % 2 ? 1 : -1)
           )}
-          position={calcPosition(i)}
-          rotation={[0, 0, (360 * rotationFactor * (i + 1)) / 180]}
           // @ts-expect-error
           opacity={gsap.utils.clamp(0.001, 1, Math.exp(-i * (1 - alphaFactor)))}
         />
@@ -184,11 +172,10 @@ function Inner() {
     </Instances>
   )
 
-  useEffect(() => void $object.set(undefined), [initGeometry])
+  // useEffect(() => void $object.set(undefined), [initGeometry])
 
   return (
     <group
-      key={Math.random()}
       position={[position.x, position.y, 0]}
       scale={[scale, scale, 1]}
       rotation={[0, 0, rotation]}>
