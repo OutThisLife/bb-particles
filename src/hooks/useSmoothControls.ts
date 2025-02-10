@@ -46,19 +46,27 @@ export function useSmoothControls<T extends Record<string, any>>(
         randomize: () => {
           set(
             Object.fromEntries(
-              entries.map(([k, v]) => [
-                k,
-                typeof v === 'object' && 'step' in v
-                  ? gsap.utils.random(v.min, v.max, v.step)
-                  : gsap.utils.random(v.min ?? 0, v.max ?? 1)
-              ])
+              entries
+                .filter(([k]) => !/upload/i.test(k))
+                .map(([k, v]) => [
+                  k,
+                  typeof v === 'object' && 'step' in v
+                    ? gsap.utils.random(v.min, v.max, v.step)
+                    : gsap.utils.random(v.min ?? 0, v.max ?? 1)
+                ])
             )
           )
 
           options?.onRandomize?.()
         },
         reset: () => {
-          set(Object.fromEntries(entries.map(([k, { value: v }]) => [k, v])))
+          set(
+            Object.fromEntries(
+              entries
+                .filter(([k]) => !/upload/i.test(k))
+                .map(([k, { value: v }]) => [k, v])
+            )
+          )
           options?.onReset?.()
         }
       })

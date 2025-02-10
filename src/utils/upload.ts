@@ -1,9 +1,9 @@
+import { $object } from '@/store'
 import * as THREE from 'three'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { loadFileAsArrayBuffer } from './buffers'
-import { $object } from '@/store'
 
 export const upload = async (file: File) => {
   const acc: THREE.BufferGeometry[] = []

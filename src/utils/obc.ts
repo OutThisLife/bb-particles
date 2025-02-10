@@ -22,7 +22,54 @@ export const obcAlpha = (shader: WebGLProgramParametersWithUniforms) => {
       '#include <dithering_fragment>',
       `
       #include <dithering_fragment>
-      gl_FragColor = vec4(outgoingLight, vOpacity);
+      gl_FragColor.a *= vOpacity;
       `
     )
 }
+
+export const obcGradient = (shader: WebGLProgramParametersWithUniforms) => {
+  shader.vertexShader = shader.vertexShader
+    .replace(
+      '#include <common>',
+      `
+      #include <common>
+      varying vec3 vPosition;
+      varying vec2 vUv;
+      `
+    )
+    .replace(
+      '#include <begin_vertex>',
+      `
+      #include <begin_vertex>
+
+      vPosition = position;
+      vUv = uv;
+      `
+    )
+
+  shader.fragmentShader = shader.fragmentShader
+    .replace(
+      '#include <common>',
+      `
+      #include <common>
+
+      varying vec3 vPosition;
+      varying vec2 vUv;
+      `
+    )
+    .replace(
+      '#include <color_fragment>',
+      `
+      #include <color_fragment>
+
+      float d = 1.0 - smoothstep(.2, .8, vPosition.y * .5 + .5);
+
+      diffuseColor.rgb *= d;
+      `
+    )
+}
+
+export const obcChain =
+  (...fns: Array<typeof obcAlpha>) =>
+  (shader: WebGLProgramParametersWithUniforms) =>
+    fns.reduce((acc, fn) => (fn(acc), acc), shader)

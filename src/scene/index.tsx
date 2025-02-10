@@ -12,12 +12,10 @@
  */
 import { useSmoothControls } from '@/hooks/useSmoothControls'
 import { $object } from '@/store'
-import { obcAlpha } from '@/utils'
+import { obcAlpha, obcChain, obcGradient } from '@/utils'
 import { upload } from '@/utils/upload'
 import { useStore } from '@nanostores/react'
 import {
-  GradientTexture,
-  GradientType,
   Instance,
   InstancedAttribute,
   Instances,
@@ -29,10 +27,10 @@ import { Canvas } from '@react-three/fiber'
 import { EffectComposer, SMAA } from '@react-three/postprocessing'
 import gsap from 'gsap'
 import { button } from 'leva'
-import { lazy, startTransition, Suspense, useCallback } from 'react'
+import { startTransition, Suspense, useCallback, useEffect } from 'react'
 import * as THREE from 'three'
-
-const Controls = lazy(() => import('./Controls'))
+import Controls from './Controls'
+import * as Shapes from './Shapes'
 
 const originOptions = [
   'center',
@@ -45,7 +43,13 @@ const originOptions = [
 function Inner() {
   const gltf = useStore($object)
 
-  const { debug, position, scale, rotation } = useSmoothControls(
+  const {
+    debug,
+    position,
+    scale,
+    rotation,
+    geometry: initGeometry
+  } = useSmoothControls(
     'Scene',
     {
       'upload (gltf, glb)': button(() => {
@@ -67,19 +71,23 @@ function Inner() {
         $input.click()
         $input.parentElement?.removeChild($input)
       }),
+      geometry: {
+        options: ['ring', 'bar', 'arch', 'disc'],
+        value: 'disc'
+      },
       debug: { value: false },
       position: { value: { x: 0, y: 0 }, min: -2, max: 2, step: 0.01 },
       scale: { value: 1, min: 0, max: 2, step: 0.01 },
       rotation: { value: 0, min: -Math.PI, max: Math.PI, step: 0.01 }
     },
-    { duration: 0.01, onReset: () => $object.set(undefined) }
+    { duration: 0.01, onReset: () => !!$object.get() && $object.set(undefined) }
   )
 
   const { repetitions, scaleFactor, rotationFactor, alphaFactor } =
     useSmoothControls('Scalars', {
       repetitions: { value: 50, min: 1, max: 500, step: 1 },
       alphaFactor: { value: 0.5, min: 0, max: 1, step: 0.01 },
-      scaleFactor: { value: 0.03, min: 0, max: 1, step: 0.01 },
+      scaleFactor: { value: 0.52, min: 0, max: 4, step: 0.01 },
       rotationFactor: { value: -0.08, min: -1, max: 1, step: 0.01 }
     })
 
@@ -95,90 +103,54 @@ function Inner() {
     stepFactor: { value: 0.16, min: 0, max: 2, step: 0.01 }
   })
 
-  const { thetaSegments, phiSegments, thetaStart, thetaEnd, radius } =
-    useSmoothControls(
-      'Geometry',
-      {
-        radius: { value: 0.94, min: 0.1, max: 0.99, step: 0.01 },
-        thetaSegments: { value: 100, min: 1, max: 100, step: 1 },
-        phiSegments: { value: 1, min: 1, max: 100, step: 1 },
-        thetaStart: { value: 0, min: 0, max: Math.PI * 2, step: 0.01 },
-        thetaEnd: {
-          value: Math.PI * 2,
-          min: 0,
-          max: Math.PI * 2,
-          step: 0.01
-        }
-      },
-      {
-        collapsed: true,
-        render: () => !gltf,
-        onReset: () => $object.set(undefined)
-      },
-      [gltf]
-    )
-
-  const { blending, gradType, gradStops, gradColor1, gradColor2, color } =
-    useSmoothControls(
-      'Material',
-      {
-        blending: {
-          options: ['None', 'Normal', 'Additive'],
-          value: 'Additive'
-        },
-        gradType: {
-          options: [GradientType.Radial, GradientType.Linear],
-          value: GradientType.Radial
-        },
-        color: { value: 'white' },
-        gradColor1: { value: 'white' },
-        gradColor2: { value: 'black' },
-        gradStops: { value: [0, 1], min: 0, max: 1, step: 0.01 }
-      },
-      { collapsed: true }
-    )
-
   const mx = mirrorX === 0.001 ? 0 : mirrorX
   const my = mirrorY === 0.001 ? 0 : mirrorY
 
   const calcPosition = useCallback(
     (i: number) => {
-      let x = i * xStep
-      let y = i * yStep
+      const xs = xStep * (gltf ? 40 : 1)
+      const ys = yStep * (gltf ? 40 : 1)
+
+      const f = !(i % 2) ? -1 : 1
+      let x = i * xs * f
+      let y = i * ys * f
 
       switch (origin) {
         case 'top-left':
-          x = -1 + i * xStep
-          y = 1 - i * yStep
+          x = -1 + i * xs
+          y = 1 - i * ys
           break
 
         case 'top-right':
-          x = 1 - i * xStep
-          y = 1 - i * yStep
+          x = 1 - i * xs
+          y = 1 - i * ys
           break
 
         case 'bottom-left':
-          x = -1 + i * xStep
-          y = -1 + i * yStep
+          x = -1 + i * xs
+          y = -1 + i * ys
           break
 
         case 'bottom-right':
-          x = 1 - i * xStep
-          y = -1 + i * yStep
+          x = 1 - i * xs
+          y = -1 + i * ys
           break
       }
 
-      return new THREE.Vector3(x, y, 0).multiplyScalar(stepFactor)
+      return new THREE.Vector3(x, y, 0).multiplyScalar(stepFactor / 10)
     },
-    [origin, xStep, yStep, stepFactor]
+    [gltf, origin, xStep, yStep, stepFactor]
   )
 
   const geometry = gltf ? (
     gltf.map(i => <bufferGeometry key={i.uuid} {...i} />)
   ) : (
-    <ringGeometry
-      args={[radius, 1, thetaSegments, phiSegments, thetaStart, thetaEnd]}
-    />
+    <>
+      {initGeometry === 'ring' && <Shapes.Ring />}
+      {initGeometry === 'disc' && <Shapes.Disc />}
+      {initGeometry === 'bar' && <Shapes.Bar />}
+      {initGeometry === 'arch' && <Shapes.Arch />}
+    </>
   )
 
   const Inner = ({ range = repetitions, ...args }: InstancesProps) => (
@@ -191,51 +163,39 @@ function Inner() {
         transparent
         alphaToCoverage
         depthTest={false}
-        onBeforeCompile={obcAlpha}
-        blending={
-          {
-            None: THREE.NoBlending,
-            Normal: THREE.NormalBlending,
-            Additive: THREE.AdditiveBlending
-          }[blending]
-        }
-        {...{ color }}>
-        <GradientTexture
-          stops={gradStops}
-          colors={[gradColor1, gradColor2]}
-          type={gradType}
-        />
-      </meshBasicMaterial>
+        onBeforeCompile={obcChain(obcAlpha, obcGradient)}
+        blending={THREE.AdditiveBlending}
+      />
 
       {Array.from({ length: range }).map((_, i) => (
         <Instance
           key={`instance-${i}`}
-          scale={gsap.utils.clamp(0.01, 1, Math.pow(1 - scaleFactor, i))}
+          scale={gsap.utils.clamp(
+            0,
+            1,
+            Math.pow(1 - i / (range - 1), 1 / scaleFactor)
+          )}
           position={calcPosition(i)}
           rotation={[0, 0, (360 * rotationFactor * (i + 1)) / 180]}
           // @ts-expect-error
-          opacity={gsap.utils.clamp(0.04, 1, Math.exp(-i * (1 - alphaFactor)))}
+          opacity={gsap.utils.clamp(0.001, 1, Math.exp(-i * (1 - alphaFactor)))}
         />
       ))}
     </Instances>
   )
 
+  useEffect(() => void $object.set(undefined), [initGeometry])
+
   return (
     <group
+      key={Math.random()}
       position={[position.x, position.y, 0]}
       scale={[scale, scale, 1]}
       rotation={[0, 0, rotation]}>
       {debug ? (
         <mesh>
           {geometry}
-
-          <meshBasicMaterial transparent>
-            <GradientTexture
-              stops={gradStops}
-              colors={[gradColor1, gradColor2]}
-              type={gradType}
-            />
-          </meshBasicMaterial>
+          <meshBasicMaterial transparent onBeforeCompile={obcGradient} />
         </mesh>
       ) : (
         <>
