@@ -22,8 +22,7 @@ export const obcAlpha = (shader: WebGLProgramParametersWithUniforms) => {
       '#include <color_fragment>',
       `
       #include <color_fragment>
-      
-      diffuseColor.rgb *= vOpacity;
+      diffuseColor.a *= vOpacity;
       `
     )
 }

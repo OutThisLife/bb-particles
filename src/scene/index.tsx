@@ -92,7 +92,7 @@ function Inner() {
   const { repetitions, scaleFactor, rotationFactor, alphaFactor } =
     useSmoothControls('Scalars', {
       repetitions: { value: 65, min: 1, max: 500, step: 1 },
-      alphaFactor: { value: 0.33, min: 0, max: 1, step: 0.01 },
+      alphaFactor: { value: 0.65, min: 0, max: 1, step: 0.01 },
       scaleFactor: { value: 1.05, min: 0, max: 2, step: 0.01 },
       rotationFactor: { value: 0, min: -1, max: 1, step: 0.01 }
     })
@@ -125,19 +125,14 @@ function Inner() {
 
   const Inner = ({ range = repetitions, ...args }: InstancesProps) => (
     <Instances {...args}>
-      <InstancedAttribute name="opacity" defaultValue={1} />
-
+      <InstancedAttribute name="opacity" defaultValue={0.01} />
       {geometry}
 
       <meshBasicMaterial
+        transparent
         depthTest={false}
         depthWrite={false}
         onBeforeCompile={obcChain(obcAlpha, obcGradient)}
-        blending={THREE.AdditiveBlending}
-        // blending={THREE.CustomBlending}
-        //   blendSrc={THREE.OneFactor}
-        //   blendDst={THREE.OneMinusSrcAlphaFactor}
-        //   blendEquation={THREE.AddEquation}
       />
 
       {Array.from({ length: range }).map((_, i) => (
@@ -166,14 +161,10 @@ function Inner() {
             return new THREE.Vector3(x, y, 0).multiplyScalar(stepFactor)
           })()}
           rotation={new THREE.Euler().setFromVector3(
-            new THREE.Vector3(
-              0,
-              0,
-              (360 * rotationFactor * (i + 1)) / 180
-            ).multiplyScalar(i % 2 ? 1 : -1)
+            new THREE.Vector3(0, 0, (360 * rotationFactor * (i + 1)) / 180)
           )}
           // @ts-expect-error
-          opacity={gsap.utils.clamp(0.001, 1, Math.exp(-i * alphaFactor))}
+          opacity={gsap.utils.clamp(0.001, 1, Math.exp(-i * (1 - alphaFactor)))}
         />
       ))}
     </Instances>
