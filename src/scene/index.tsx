@@ -21,9 +21,10 @@ import {
   Instances,
   InstancesProps,
   Loader,
-  Stats
+  Stats,
+  TransformControls
 } from '@react-three/drei'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { EffectComposer, SMAA } from '@react-three/postprocessing'
 import gsap from 'gsap'
 import { button } from 'leva'
@@ -43,10 +44,12 @@ const originOptions = [
 ] as const
 
 function Inner() {
+  const { gl, scene, camera, size } = useThree()
   const gltf = useStore($object)
 
   const {
     debug,
+    transform,
     position,
     scale,
     rotation,
@@ -78,6 +81,7 @@ function Inner() {
         value: 'ring'
       },
       debug: { value: false },
+      transform: { value: false },
       position: { value: { x: 0, y: -0.5 }, min: -2, max: 2, step: 0.01 },
       scale: { value: 0.85, min: 0, max: 2, step: 0.01 },
       rotation: { value: 0, min: -Math.PI, max: Math.PI, step: 0.01 }
@@ -182,22 +186,51 @@ function Inner() {
       {debug ? (
         <mesh>
           {geometry}
-          <meshBasicMaterial transparent onBeforeCompile={obcGradient} />
+
+          <meshBasicMaterial
+            transparent
+            alphaToCoverage
+            onBeforeCompile={obcGradient}
+          />
         </mesh>
       ) : (
         <>
-          <Inner position={[mx, 0, 0]} />
+          <TransformControls
+            showX={transform}
+            showY={transform}
+            showZ={false}
+            position={[mx, 0, 0]}>
+            <Inner />
+          </TransformControls>
 
           {mirrorX !== 0.0 && (
-            <Inner position={[-mx, 0, 0]} scale={[-1, 1, 1]} />
+            <TransformControls
+              position={[-mx, 0, 0]}
+              showX={transform}
+              showY={transform}
+              showZ={false}>
+              <Inner scale={[-1, 1, 1]} />
+            </TransformControls>
           )}
 
           {mirrorY !== 0.0 && (
-            <Inner position={[mx, -my, 0]} scale={[1, -1, 1]} />
+            <TransformControls
+              position={[mx, -my, 0]}
+              showX={transform}
+              showY={transform}
+              showZ={false}>
+              <Inner scale={[1, -1, 1]} />
+            </TransformControls>
           )}
 
           {mirrorX !== 0.0 && mirrorY !== 0.0 && (
-            <Inner position={[-mx, -my, 0]} scale={[-1, -1, 1]} />
+            <TransformControls
+              position={[-mx, -my, 0]}
+              showX={transform}
+              showY={transform}
+              showZ={false}>
+              <Inner scale={[-1, -1, 1]} />
+            </TransformControls>
           )}
         </>
       )}
@@ -208,8 +241,10 @@ function Inner() {
 export default function Scene() {
   return (
     <Canvas
+      key={Math.random()}
       orthographic
       style={{ width: '100svw', height: '100svh' }}
+      dpr={[4, 8]}
       gl={{
         antialias: true,
         alpha: true,

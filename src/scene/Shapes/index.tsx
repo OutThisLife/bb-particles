@@ -1,15 +1,17 @@
 import * as THREE from 'three'
 
 export function Ring() {
-  return <ringGeometry args={[0.97, 1, 100, 1, 0, Math.PI * 2]} />
+  return <ringGeometry args={[0.95, 1, 100, 1, 0, Math.PI * 2]} />
 }
 
 export function Disc() {
-  return <ringGeometry args={[0.98, 1, 100, 1, 0, Math.PI]} />
+  return (
+    <ringGeometry args={[0.95, 1, 100, 1, Math.PI * 0.75, Math.PI * 0.5]} />
+  )
 }
 
 export function Bar() {
-  return <boxGeometry args={[0.015, 2]} />
+  return <boxGeometry args={[0.02, 2]} />
 }
 
 export function Arch() {
