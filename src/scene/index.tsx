@@ -176,7 +176,7 @@ function Inner() {
             ).multiplyScalar(i % 2 ? 1 : -1)
           )}
           // @ts-expect-error
-          opacity={gsap.utils.clamp(0.0445, 1, Math.exp(-i * alphaFactor * 3))}
+          opacity={gsap.utils.clamp(0.001, 1, Math.exp(-i * alphaFactor))}
         />
       ))}
     </Instances>
