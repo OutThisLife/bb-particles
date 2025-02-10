@@ -174,7 +174,6 @@ function Inner() {
 
   return (
     <group
-      key={Math.random()}
       position={[position.x, position.y, 0]}
       scale={[scale, scale, 1]}
       rotation={[0, 0, rotation]}>
