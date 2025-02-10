@@ -28,7 +28,7 @@ import { Canvas, useThree } from '@react-three/fiber'
 import { EffectComposer, SMAA } from '@react-three/postprocessing'
 import gsap from 'gsap'
 import { button } from 'leva'
-import { startTransition, Suspense } from 'react'
+import { startTransition, Suspense, useEffect } from 'react'
 import * as THREE from 'three'
 import Controls from './Controls'
 import * as Shapes from './Shapes'
@@ -92,7 +92,7 @@ function Inner() {
   const { repetitions, scaleFactor, rotationFactor, alphaFactor } =
     useSmoothControls('Scalars', {
       repetitions: { value: 65, min: 1, max: 500, step: 1 },
-      alphaFactor: { value: 0.01, min: 0, max: 1, step: 0.01 },
+      alphaFactor: { value: 0.33, min: 0, max: 1, step: 0.01 },
       scaleFactor: { value: 1.05, min: 0, max: 2, step: 0.01 },
       rotationFactor: { value: 0, min: -1, max: 1, step: 0.01 }
     })
@@ -125,16 +125,22 @@ function Inner() {
 
   const Inner = ({ range = repetitions, ...args }: InstancesProps) => (
     <Instances {...args}>
-      <InstancedAttribute name="opacity" defaultValue={0.02} />
+      <InstancedAttribute name="opacity" defaultValue={1} />
 
       {geometry}
 
       <meshBasicMaterial
         transparent
-        alphaToCoverage
         depthTest={false}
+        depthWrite={false}
+        alphaToCoverage
+        alphaTest={0.01}
         onBeforeCompile={obcChain(obcAlpha, obcGradient)}
         blending={THREE.AdditiveBlending}
+        // blending={THREE.CustomBlending}
+        //   blendSrc={THREE.OneFactor}
+        //   blendDst={THREE.OneMinusSrcAlphaFactor}
+        //   blendEquation={THREE.AddEquation}
       />
 
       {Array.from({ length: range }).map((_, i) => (
@@ -170,16 +176,17 @@ function Inner() {
             ).multiplyScalar(i % 2 ? 1 : -1)
           )}
           // @ts-expect-error
-          opacity={gsap.utils.clamp(0.001, 1, Math.exp(-i * (1 - alphaFactor)))}
+          opacity={gsap.utils.clamp(0.0445, 1, Math.exp(-i * alphaFactor * 3))}
         />
       ))}
     </Instances>
   )
 
-  // useEffect(() => void $object.set(undefined), [initGeometry])
+  useEffect(() => void $object.set(undefined), [initGeometry])
 
   return (
     <group
+      key={Math.random()}
       position={[position.x, position.y, 0]}
       scale={[scale, scale, 1]}
       rotation={[0, 0, rotation]}>
@@ -196,6 +203,7 @@ function Inner() {
       ) : (
         <>
           <TransformControls
+            enabled={transform}
             showX={transform}
             showY={transform}
             showZ={false}
@@ -205,6 +213,7 @@ function Inner() {
 
           {mirrorX !== 0.0 && (
             <TransformControls
+              enabled={transform}
               position={[-mx, 0, 0]}
               showX={transform}
               showY={transform}
@@ -215,6 +224,7 @@ function Inner() {
 
           {mirrorY !== 0.0 && (
             <TransformControls
+              enabled={transform}
               position={[mx, -my, 0]}
               showX={transform}
               showY={transform}
@@ -225,6 +235,7 @@ function Inner() {
 
           {mirrorX !== 0.0 && mirrorY !== 0.0 && (
             <TransformControls
+              enabled={transform}
               position={[-mx, -my, 0]}
               showX={transform}
               showY={transform}
@@ -241,10 +252,8 @@ function Inner() {
 export default function Scene() {
   return (
     <Canvas
-      key={Math.random()}
       orthographic
       style={{ width: '100svw', height: '100svh' }}
-      dpr={[4, 8]}
       gl={{
         antialias: true,
         alpha: true,

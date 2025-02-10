@@ -22,7 +22,6 @@ export const obcAlpha = (shader: WebGLProgramParametersWithUniforms) => {
       '#include <dithering_fragment>',
       `
       #include <dithering_fragment>
-
       gl_FragColor.a *= vOpacity;
       `
     )
@@ -66,8 +65,7 @@ export const obcGradient = (shader: WebGLProgramParametersWithUniforms) => {
       float d = 1.0 - smoothstep(.2, 1., abs(vPosition.y) * .5 + .5);
       float taper = smoothstep(.95, 1., length(vPosition.xy - .5));
 
-      diffuseColor.rgb *= d;
-      // diffuseColor.a = taper * d * 1.;
+      diffuseColor.rgb = vec3(clamp(pow(d, 1.2), 0., 1.));
       `
     )
 }
