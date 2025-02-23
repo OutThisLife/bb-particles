@@ -24,11 +24,11 @@ import {
   Stats,
   TransformControls
 } from '@react-three/drei'
-import { Canvas, useThree } from '@react-three/fiber'
+import { Canvas } from '@react-three/fiber'
 import { EffectComposer, SMAA } from '@react-three/postprocessing'
 import gsap from 'gsap'
-import { button } from 'leva'
-import { startTransition, Suspense, useEffect } from 'react'
+import { button, folder } from 'leva'
+import { startTransition, Suspense, useEffect, useState } from 'react'
 import * as THREE from 'three'
 import Controls from './Controls'
 import * as Shapes from './Shapes'
@@ -44,18 +44,11 @@ const originOptions = [
 ] as const
 
 function Inner() {
-  const { gl, scene, camera, size } = useThree()
   const gltf = useStore($object)
+  const [groups, setGroups] = useState(0)
 
-  const {
-    debug,
-    transform,
-    position,
-    scale,
-    rotation,
-    geometry: initGeometry
-  } = useSmoothControls(
-    'Scene',
+  const { geometry: initGeometry } = useSmoothControls(
+    'Element',
     {
       'upload (gltf, glb)': button(() => {
         const $input = document.createElement('input')
@@ -77,14 +70,10 @@ function Inner() {
         $input.parentElement?.removeChild($input)
       }),
       geometry: {
+        label: 'Primitive',
         options: ['ring', 'bar', 'arch', 'disc'],
         value: 'ring'
-      },
-      debug: { value: false },
-      transform: { value: false },
-      position: { value: { x: 0, y: -0.5 }, min: -2, max: 2, step: 0.01 },
-      scale: { value: 0.85, min: 0, max: 2, step: 0.01 },
-      rotation: { value: 0, min: -Math.PI, max: Math.PI, step: 0.01 }
+      }
     },
     { duration: 0.01, onReset: () => !!$object.get() && $object.set(undefined) }
   )
@@ -97,17 +86,107 @@ function Inner() {
       rotationFactor: { value: 0, min: -1, max: 1, step: 0.01 }
     })
 
-  const { mirrorX, mirrorY } = useSmoothControls('Reflection', {
-    mirrorX: { value: 0.85, min: -2, max: 2, step: 0.01 },
-    mirrorY: { value: -1.22, min: -2, max: 2, step: 0.01 }
-  })
+  const { mirrorX, mirrorY, ...reflections } = useSmoothControls(
+    'Groups',
+    {
+      mirrorX: { value: 0.85, min: -2, max: 2, step: 0.01 },
+      mirrorY: { value: -1.22, min: -2, max: 2, step: 0.01 },
+      'add group': button(() => setGroups(groups + 1)),
+      ...Object.fromEntries(
+        Array.from({ length: groups }).flatMap((_, i) => [
+          [
+            `g${i}`,
+            folder({
+              [`g${i}-position`]: {
+                label: 'Position',
+                value: { x: 0, y: 0 },
+                min: -2,
+                max: 2,
+                step: 0.01
+              },
+              [`g${i}-rotation`]: {
+                label: 'Rotation',
+                value: 0,
+                min: -Math.PI,
+                max: Math.PI,
+                step: 0.01
+              },
+              [`g${i}-scale`]: {
+                label: 'Scale',
+                value: 1,
+                min: 0,
+                max: 2,
+                step: 0.01
+              },
+              [`remove-g${i}`]: button(() => setGroups(st => st - 1))
+            })
+          ]
+        ])
+      )
+    },
+    [groups]
+  )
+
+  console.log(reflections)
 
   const { xStep, yStep, origin, stepFactor } = useSmoothControls('Spatial', {
-    origin: { options: originOptions, value: 'top-center' },
-    xStep: { value: -0.55, min: -2, max: 2, step: 0.01 },
-    yStep: { value: -0.8, min: -2, max: 2, step: 0.01 },
-    stepFactor: { value: 0.13, min: 0, max: 2, step: 0.01 }
+    origin: {
+      label: 'Origin',
+      options: originOptions,
+      value: 'top-center'
+    },
+    xStep: {
+      label: 'X Step',
+      value: -0.55,
+      min: -2,
+      max: 2,
+      step: 0.01
+    },
+    yStep: {
+      label: 'Y Step',
+      value: -0.8,
+      min: -2,
+      max: 2,
+      step: 0.01
+    },
+    stepFactor: {
+      label: 'Step Factor',
+      value: 0.13,
+      min: 0,
+      max: 2,
+      step: 0.01
+    }
   })
+
+  const { debug, transform, position, scale, rotation } = useSmoothControls(
+    'Scene',
+    {
+      debug: { label: 'Debug', value: false },
+      transform: { label: 'Transform', value: false },
+      position: {
+        label: 'Position',
+        value: { x: 0, y: -0.5 },
+        min: -2,
+        max: 2,
+        step: 0.01
+      },
+      rotation: {
+        label: 'Rotation',
+        value: 0,
+        min: -Math.PI,
+        max: Math.PI,
+        step: 0.01
+      },
+      scale: {
+        label: 'Scale',
+        value: 0.85,
+        min: 0,
+        max: 2,
+        step: 0.01
+      }
+    },
+    { collapsed: true, duration: 0.01 }
+  )
 
   const mx = mirrorX === 0.001 ? 0 : mirrorX
   const my = mirrorY === 0.001 ? 0 : mirrorY

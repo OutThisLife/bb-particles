@@ -67,8 +67,15 @@ export function useSmoothControls<T extends Record<string, any>>(
                 .map(([k, { value: v }]) => [k, v])
             )
           )
+
           options?.onReset?.()
-        }
+        },
+        flatten: () =>
+          set(
+            Object.fromEntries(
+              entries.filter(([k]) => !/upload/i.test(k)).map(([k]) => [k, 0])
+            )
+          )
       })
     }),
     options,
