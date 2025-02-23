@@ -27,8 +27,8 @@ import {
 import { Canvas } from '@react-three/fiber'
 import { EffectComposer, SMAA } from '@react-three/postprocessing'
 import gsap from 'gsap'
-import { button, folder } from 'leva'
-import { startTransition, Suspense, useEffect, useState } from 'react'
+import { button, folder, useControls } from 'leva'
+import { startTransition, Suspense, useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import Controls from './Controls'
 import * as Shapes from './Shapes'
@@ -45,7 +45,7 @@ const originOptions = [
 
 function Inner() {
   const gltf = useStore($object)
-  const [groups, setGroups] = useState(0)
+  const [layers, setLayers] = useState(0)
 
   const { geometry: initGeometry } = useSmoothControls(
     'Element',
@@ -78,25 +78,24 @@ function Inner() {
     { duration: 0.01, onReset: () => !!$object.get() && $object.set(undefined) }
   )
 
-  const { repetitions, scaleFactor, rotationFactor, alphaFactor } =
-    useSmoothControls('Scalars', {
-      repetitions: { value: 65, min: 1, max: 500, step: 1 },
-      alphaFactor: { value: 0.65, min: 0, max: 1, step: 0.01 },
-      scaleFactor: { value: 1.05, min: 0, max: 2, step: 0.01 },
-      rotationFactor: { value: 0, min: -1, max: 1, step: 0.01 }
-    })
+  const { repetitions, ...scalars } = useSmoothControls('Scalars', {
+    repetitions: { value: 65, min: 1, max: 500, step: 1 },
+    alphaFactor: { value: 0.65, min: 0, max: 1, step: 0.01 },
+    scaleFactor: { value: 1.05, min: 0, max: 2, step: 0.01 },
+    rotationFactor: { value: 0, min: -1, max: 1, step: 0.01 },
+    stepFactor: { value: 0.13, min: 0, max: 2, step: 0.01 }
+  })
 
-  const { mirrorX, mirrorY, ...reflections } = useSmoothControls(
+  const [reflections] = useControls(
     'Groups',
-    {
-      mirrorX: { value: 0.85, min: -2, max: 2, step: 0.01 },
-      mirrorY: { value: -1.22, min: -2, max: 2, step: 0.01 },
-      'add group': button(() => setGroups(groups + 1)),
+    () => ({
+      'add layer': button(() => setLayers(st => st + 1)),
       ...Object.fromEntries(
-        Array.from({ length: groups }).flatMap((_, i) => [
+        Array.from({ length: layers }).flatMap((_, i) => [
           [
             `g${i}`,
             folder({
+              [`g${i}-transform`]: { label: 'Transform', value: false },
               [`g${i}-position`]: {
                 label: 'Position',
                 value: { x: 0, y: 0 },
@@ -113,23 +112,57 @@ function Inner() {
               },
               [`g${i}-scale`]: {
                 label: 'Scale',
-                value: 1,
-                min: 0,
+                value: [-1, 1],
+                min: -1,
                 max: 2,
                 step: 0.01
               },
-              [`remove-g${i}`]: button(() => setGroups(st => st - 1))
+              [`g${i}-stepFactor`]: {
+                label: 'stepFactor',
+                value: 0.13,
+                min: 0,
+                max: 2,
+                step: 0.01,
+                optional: true,
+                disabled: true
+              },
+              [`g${i}-alphaFactor`]: {
+                label: 'alphaFactor',
+                value: 0.65,
+                min: 0,
+                max: 1,
+                step: 0.01,
+                optional: true,
+                disabled: true
+              },
+              [`g${i}-scaleFactor`]: {
+                label: 'scaleFactor',
+                value: 1.05,
+                min: 0,
+                max: 2,
+                step: 0.01,
+                optional: true,
+                disabled: true
+              },
+              [`g${i}-rotationFactor`]: {
+                label: 'rotationFactor',
+                value: 0,
+                min: -1,
+                max: 1,
+                step: 0.01,
+                optional: true,
+                disabled: true
+              },
+              [`remove-g${i}`]: button(() => setLayers(st => st - 1))
             })
           ]
         ])
       )
-    },
-    [groups]
+    }),
+    [layers]
   )
 
-  console.log(reflections)
-
-  const { xStep, yStep, origin, stepFactor } = useSmoothControls('Spatial', {
+  const { xStep, yStep, origin } = useSmoothControls('Spatial', {
     origin: {
       label: 'Origin',
       options: originOptions,
@@ -146,13 +179,6 @@ function Inner() {
       label: 'Y Step',
       value: -0.8,
       min: -2,
-      max: 2,
-      step: 0.01
-    },
-    stepFactor: {
-      label: 'Step Factor',
-      value: 0.13,
-      min: 0,
       max: 2,
       step: 0.01
     }
@@ -188,8 +214,23 @@ function Inner() {
     { collapsed: true, duration: 0.01 }
   )
 
-  const mx = mirrorX === 0.001 ? 0 : mirrorX
-  const my = mirrorY === 0.001 ? 0 : mirrorY
+  const sceneLayers = useMemo(
+    () =>
+      Object.entries(reflections as Record<string, any>)
+        .filter(([k, v]) => /g\d+/.test(k) && typeof v !== 'undefined')
+        .reduce(
+          (acc, [k, v]) => {
+            const [k0, k1] = k.split('-')
+            const idx = +k0.replace('g', '')
+
+            acc[idx] = { ...acc[idx], [k1]: v }
+
+            return acc
+          },
+          [] as Record<string, any>[]
+        ),
+    [reflections]
+  )
 
   const geometry = gltf ? (
     gltf.map(i => <bufferGeometry key={i.uuid} {...i} />)
@@ -202,7 +243,11 @@ function Inner() {
     </>
   )
 
-  const Inner = ({ range = repetitions, ...args }: InstancesProps) => (
+  const Layer = ({
+    range = repetitions,
+    scalars: { stepFactor, scaleFactor, rotationFactor, alphaFactor } = {},
+    ...args
+  }: LayerProps) => (
     <Instances {...args}>
       <InstancedAttribute name="opacity" defaultValue={0.01} />
       {geometry}
@@ -217,7 +262,11 @@ function Inner() {
       {Array.from({ length: range }).map((_, i) => (
         <Instance
           key={`instance-${i}`}
-          scale={gsap.utils.clamp(0, 4, Math.exp(-(i + 1) * (1 - scaleFactor)))}
+          scale={gsap.utils.clamp(
+            0,
+            4,
+            Math.exp(-(i + 1) * (1 - (scaleFactor ?? scalars.scaleFactor ?? 1)))
+          )}
           position={(() => {
             const xs = xStep * (gltf ? 15 : 1)
             const ys = yStep * (gltf ? 15 : 1)
@@ -237,13 +286,26 @@ function Inner() {
               x = 1 - x
             }
 
-            return new THREE.Vector3(x, y, 0).multiplyScalar(stepFactor)
+            return new THREE.Vector3(x, y, 0).multiplyScalar(
+              stepFactor ?? scalars?.stepFactor ?? 1
+            )
           })()}
           rotation={new THREE.Euler().setFromVector3(
-            new THREE.Vector3(0, 0, (360 * rotationFactor * (i + 1)) / 180)
+            new THREE.Vector3(
+              0,
+              0,
+              (360 *
+                (rotationFactor ?? scalars?.rotationFactor ?? 1) *
+                (i + 1)) /
+                180
+            )
           )}
           // @ts-expect-error
-          opacity={gsap.utils.clamp(0.001, 1, Math.exp(-i * (1 - alphaFactor)))}
+          opacity={gsap.utils.clamp(
+            0.001,
+            1,
+            Math.exp(-i * (1 - (alphaFactor ?? scalars?.alphaFactor ?? 1)))
+          )}
         />
       ))}
     </Instances>
@@ -273,42 +335,25 @@ function Inner() {
             showX={transform}
             showY={transform}
             showZ={false}
-            position={[mx, 0, 0]}>
-            <Inner />
+            position={[0, 0, 0]}>
+            <Layer {...{ scalars }} />
           </TransformControls>
 
-          {mirrorX !== 0.0 && (
+          {sceneLayers.map((i, n) => (
             <TransformControls
-              enabled={transform}
-              position={[-mx, 0, 0]}
-              showX={transform}
-              showY={transform}
-              showZ={false}>
-              <Inner scale={[-1, 1, 1]} />
+              key={`g${n}`}
+              enabled={transform || i.transform}
+              showX={transform || i.transform}
+              showY={transform || i.transform}
+              showZ={false}
+              position={[i?.position?.x ?? 0, i?.position?.y ?? 0, 0]}>
+              <Layer
+                rotation={[0, 0, i?.rotation ?? 0]}
+                scale={[i?.scale?.[0] ?? 1, i?.scale?.[1] ?? 1, 1]}
+                scalars={i}
+              />
             </TransformControls>
-          )}
-
-          {mirrorY !== 0.0 && (
-            <TransformControls
-              enabled={transform}
-              position={[mx, -my, 0]}
-              showX={transform}
-              showY={transform}
-              showZ={false}>
-              <Inner scale={[1, -1, 1]} />
-            </TransformControls>
-          )}
-
-          {mirrorX !== 0.0 && mirrorY !== 0.0 && (
-            <TransformControls
-              enabled={transform}
-              position={[-mx, -my, 0]}
-              showX={transform}
-              showY={transform}
-              showZ={false}>
-              <Inner scale={[-1, -1, 1]} />
-            </TransformControls>
-          )}
+          ))}
         </>
       )}
     </group>
@@ -339,4 +384,13 @@ export default function Scene() {
       <Stats />
     </Canvas>
   )
+}
+
+interface LayerProps extends InstancesProps {
+  scalars?: {
+    stepFactor?: number
+    scaleFactor?: number
+    rotationFactor?: number
+    alphaFactor?: number
+  }
 }
