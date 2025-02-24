@@ -1,5 +1,6 @@
 import { $layers } from '@/store'
 import { levaStore } from 'leva'
+import LZUTF8 from 'lzutf8'
 import { useEffect } from 'react'
 
 let hydrated = false
@@ -33,13 +34,19 @@ export default function useLinkableControls() {
           {} as Record<string, string>
         )
 
-      u.searchParams.set('st', btoa(JSON.stringify(params)))
+      u.searchParams.set(
+        'st',
+        LZUTF8.compress(JSON.stringify(params), { outputEncoding: 'Base64' })
+      )
+
       window.history.replaceState({}, '', u.toString())
     }
 
     const decode = (st: string) => {
       const next = Object.entries(
-        JSON.parse(atob(st)) as Record<string, string>
+        JSON.parse(
+          LZUTF8.decompress(st, { inputEncoding: 'Base64' })
+        ) as Record<string, string>
       )
         .map(([k, v]) => [k, JSON.parse(v)])
         .filter(([, v]) => 'value' in v)
