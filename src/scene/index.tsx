@@ -10,8 +10,9 @@
  * - translucent gradient to create blur and lighting
  * - mirror X xor Y?
  */
+import useLinkableControls from '@/hooks/useLinkableControls'
 import { useSmoothControls } from '@/hooks/useSmoothControls'
-import { $object } from '@/store'
+import { $layers, $object } from '@/store'
 import { obcAlpha, obcChain, obcGradient } from '@/utils'
 import { upload } from '@/utils/upload'
 import { useStore } from '@nanostores/react'
@@ -28,7 +29,7 @@ import { Canvas } from '@react-three/fiber'
 import { EffectComposer, SMAA } from '@react-three/postprocessing'
 import gsap from 'gsap'
 import { button, folder, useControls } from 'leva'
-import { startTransition, Suspense, useEffect, useMemo, useState } from 'react'
+import { startTransition, Suspense, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import Controls from './Controls'
 import * as Shapes from './Shapes'
@@ -45,9 +46,9 @@ const originOptions = [
 
 function Inner() {
   const gltf = useStore($object)
-  const [layers, setLayers] = useState(0)
+  const layers = useStore($layers)
 
-  const { geometry: initGeometry } = useSmoothControls(
+  const { blend, geometry: initGeometry } = useSmoothControls(
     'Element',
     {
       'upload (gltf, glb)': button(() => {
@@ -73,7 +74,8 @@ function Inner() {
         label: 'Primitive',
         options: ['ring', 'bar', 'arch', 'disc'],
         value: 'ring'
-      }
+      },
+      blend: { value: false }
     },
     { duration: 0.01, onReset: () => !!$object.get() && $object.set(undefined) }
   )
@@ -89,72 +91,75 @@ function Inner() {
   const [reflections] = useControls(
     'Groups',
     () => ({
-      'add layer': button(() => setLayers(st => st + 1)),
+      'add layer': button(() => $layers.set($layers.get() + 1)),
       ...Object.fromEntries(
         Array.from({ length: layers }).flatMap((_, i) => [
           [
             `g${i}`,
-            folder({
-              [`g${i}-transform`]: { label: 'Transform', value: false },
-              [`g${i}-position`]: {
-                label: 'Position',
-                value: { x: 0, y: 0 },
-                min: -2,
-                max: 2,
-                step: 0.01
+            folder(
+              {
+                [`g${i}-transform`]: { label: 'Transform', value: false },
+                [`g${i}-position`]: {
+                  label: 'Position',
+                  value: { x: 0, y: 0 },
+                  min: -2,
+                  max: 2,
+                  step: 0.01
+                },
+                [`g${i}-rotation`]: {
+                  label: 'Rotation',
+                  value: 0,
+                  min: -Math.PI,
+                  max: Math.PI,
+                  step: 0.01
+                },
+                [`g${i}-scale`]: {
+                  label: 'Scale',
+                  value: { x: -1, y: 1 },
+                  min: -2,
+                  max: 2,
+                  step: 0.01
+                },
+                [`g${i}-stepFactor`]: {
+                  label: 'stepFactor',
+                  value: 0.13,
+                  min: 0,
+                  max: 2,
+                  step: 0.01,
+                  optional: true,
+                  disabled: true
+                },
+                [`g${i}-alphaFactor`]: {
+                  label: 'alphaFactor',
+                  value: 0.65,
+                  min: 0,
+                  max: 1,
+                  step: 0.01,
+                  optional: true,
+                  disabled: true
+                },
+                [`g${i}-scaleFactor`]: {
+                  label: 'scaleFactor',
+                  value: 1.05,
+                  min: 0,
+                  max: 2,
+                  step: 0.01,
+                  optional: true,
+                  disabled: true
+                },
+                [`g${i}-rotationFactor`]: {
+                  label: 'rotationFactor',
+                  value: 0,
+                  min: -1,
+                  max: 1,
+                  step: 0.01,
+                  optional: true,
+                  disabled: true
+                },
+                [`remove-g${i}`]: button(() => $layers.set($layers.get() - 1))
               },
-              [`g${i}-rotation`]: {
-                label: 'Rotation',
-                value: 0,
-                min: -Math.PI,
-                max: Math.PI,
-                step: 0.01
-              },
-              [`g${i}-scale`]: {
-                label: 'Scale',
-                value: [-1, 1],
-                min: -1,
-                max: 2,
-                step: 0.01
-              },
-              [`g${i}-stepFactor`]: {
-                label: 'stepFactor',
-                value: 0.13,
-                min: 0,
-                max: 2,
-                step: 0.01,
-                optional: true,
-                disabled: true
-              },
-              [`g${i}-alphaFactor`]: {
-                label: 'alphaFactor',
-                value: 0.65,
-                min: 0,
-                max: 1,
-                step: 0.01,
-                optional: true,
-                disabled: true
-              },
-              [`g${i}-scaleFactor`]: {
-                label: 'scaleFactor',
-                value: 1.05,
-                min: 0,
-                max: 2,
-                step: 0.01,
-                optional: true,
-                disabled: true
-              },
-              [`g${i}-rotationFactor`]: {
-                label: 'rotationFactor',
-                value: 0,
-                min: -1,
-                max: 1,
-                step: 0.01,
-                optional: true,
-                disabled: true
-              },
-              [`remove-g${i}`]: button(() => setLayers(st => st - 1))
-            })
+              { collapsed: true }
+            )
           ]
         ])
       )
@@ -257,6 +262,7 @@ function Inner() {
         depthTest={false}
         depthWrite={false}
         onBeforeCompile={obcChain(obcAlpha, obcGradient)}
+        blending={blend ? THREE.AdditiveBlending : THREE.NormalBlending}
       />
 
       {Array.from({ length: range }).map((_, i) => (
@@ -302,7 +308,7 @@ function Inner() {
           )}
           // @ts-expect-error
           opacity={gsap.utils.clamp(
-            0.001,
+            0,
             1,
             Math.exp(-i * (1 - (alphaFactor ?? scalars?.alphaFactor ?? 1)))
           )}
@@ -349,7 +355,7 @@ function Inner() {
               position={[i?.position?.x ?? 0, i?.position?.y ?? 0, 0]}>
               <Layer
                 rotation={[0, 0, i?.rotation ?? 0]}
-                scale={[i?.scale?.[0] ?? 1, i?.scale?.[1] ?? 1, 1]}
+                scale={[i?.scale?.x ?? 1, i?.scale?.y ?? 1, 1]}
                 scalars={i}
               />
             </TransformControls>
@@ -361,6 +367,8 @@ function Inner() {
 }
 
 export default function Scene() {
+  useLinkableControls()
+
   return (
     <Canvas
       orthographic
