@@ -34,7 +34,6 @@ export default function useLinkableControls() {
         )
 
       u.searchParams.set('st', btoa(JSON.stringify(params)))
-
       window.history.replaceState({}, '', u.toString())
     }
 
@@ -44,7 +43,6 @@ export default function useLinkableControls() {
       )
         .map(([k, v]) => [k, JSON.parse(v)])
         .filter(([, v]) => 'value' in v)
-        .map(([k, v]) => [k, v.value])
 
       if (
         next.some(([k]) => /g\d+/.test(k)) &&
@@ -58,15 +56,18 @@ export default function useLinkableControls() {
         )
       }
 
-      levaStore.set(Object.fromEntries(next), false)
+      levaStore.set(
+        Object.fromEntries(next.map(([k, v]) => [k, v.value])),
+        false
+      )
+
       hydrated = true
     }
 
-    if (u.searchParams.has('st') && !hydrated) {
+    if (!hydrated && u.searchParams.has('st')) {
       decode(u.searchParams.get('st')!)
     } else {
-      console.log('encoding')
-      requestAnimationFrame(() => encode(store.data))
+      encode(store.data)
     }
   }, [store])
 }
