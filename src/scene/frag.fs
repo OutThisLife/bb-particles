@@ -29,10 +29,10 @@ vec3 getGradient(float x) {
     col *= mix(1.0, 0.5, (x - 0.75) * 4.0); // 75-100%
   }
 
-  return col;
+  return lin * col;
 }
 
-float U(float d) { return smoothstep(aa, 0., abs(d) - aa); }
+float U(float d) { return saturate(smoothstep(aa, 0., abs(d) - aa)); }
 
 float smin(float a, float b, float k) {
   float h = max(k - abs(a - b), 0.0) / k;
@@ -57,10 +57,10 @@ float sdBox(vec2 p, vec2 b) {
 float sdCircle(vec2 p, float r) { return length(p) - r; }
 
 void draw(vec2 p, inout vec4 col, float scale, float alpha) {
-  float d = U(sdBox(p, vec2(scale))) * alpha;
-  d = saturate(d);
+  float d = U(sdBox(p, vec2(scale)));
 
-  col = mix(col, vec4(lin * getGradient(abs(p.x + p.y)), d), d);
+  // col = mix(col, vec4(lin, alpha), d);
+  col = mix(col, vec4(lin * lin - getGradient(length(p)), alpha), d);
 }
 
 void main() {
@@ -74,7 +74,6 @@ void main() {
 
   // Boxes
   {
-    vec2 p = uv * .5;
     const int STEPS = 30;
     const int DRAW_COUNT = 3;
 
@@ -86,18 +85,16 @@ void main() {
       float scale = .1 + idx * .9;
       scale = .5;
 
-      vec2 p = p * rot(radians(n * 5.));
+      vec2 p = uv * .3 * rot(radians(n * 5.));
 
-      draw(p * .68, col, scale, .4);
-      draw(p * pow(.68, 2.), col, scale, .2);
-      draw(p * pow(.68, 3.), col, scale, .15);
-
-      for (int j = 0; j < DRAW_COUNT; j++) {
-        float scaleFactor = pow(1.5, float(j));
-        float alpha = pow(0.5, float(j));
-
-        draw(p * scaleFactor, col, scale, max(alpha, .1));
-      }
+      draw(p * pow(.82, 2.), col, scale, idx * .05);
+      draw(p * pow(.82, 3.), col, scale, idx * .01);
+      draw(p * pow(.82, 4.), col, scale, idx * .02);
+      draw(p, col, scale, idx * 3.);
+      draw(p * 1.5, col, scale, idx * .1);
+      draw(p * pow(1.5, 2.), col, scale, idx * .1);
+      draw(p * pow(1.5, 3.), col, scale, idx * .05);
+      draw(p * pow(1.5, 4.), col, scale, idx * .05);
     }
   }
 
