@@ -72,28 +72,24 @@ void main() {
   float t = uTime;
   vec4 col;
 
-  // Boxes
-  {
+  for (int i = 0; i < uSteps; i++) {
+    float n = float(i), s = float(uSteps);
+    float idx = (n + 1.) / s;
+    float alt = n * (i % 2 == 0 ? 1. : -1.);
 
-    for (int i = 0; i < uSteps; i++) {
-      float n = float(i), s = float(uSteps);
-      float idx = (n + 1.) / s;
-      float alt = n * (i % 2 == 0 ? 1. : -1.);
+    float scale = .1 + idx * .9;
+    scale = .5;
 
-      float scale = .1 + idx * .9;
-      scale = .5;
+    vec2 p = uv * .3 * rot(radians(n * 5.));
 
-      vec2 p = uv * .3 * rot(radians(n * 5.));
-
-      draw(p * pow(.82, 2.), col, scale, idx * .05);
-      draw(p * pow(.82, 3.), col, scale, idx * .01);
-      draw(p * pow(.82, 4.), col, scale, idx * .02);
-      draw(p, col, scale, idx * 3.);
-      draw(p * 1.5, col, scale, idx * .1);
-      draw(p * pow(1.5, 2.), col, scale, idx * .1);
-      draw(p * pow(1.5, 3.), col, scale, idx * .05);
-      draw(p * pow(1.5, 4.), col, scale, idx * .05);
-    }
+    draw(p * pow(.82, 2.), col, scale, idx * .05);
+    draw(p * pow(.82, 3.), col, scale, idx * .01);
+    draw(p * pow(.82, 4.), col, scale, idx * .02);
+    draw(p, col, scale, idx * 3.);
+    draw(p * 1.5, col, scale, idx * .1);
+    draw(p * pow(1.5, 2.), col, scale, idx * .1);
+    draw(p * pow(1.5, 3.), col, scale, idx * .05);
+    draw(p * pow(1.5, 4.), col, scale, idx * .05);
   }
 
   fragColor = saturate(col);
