@@ -3,7 +3,7 @@ precision highp float;
 uniform float uTime;
 uniform vec2 uResolution;
 uniform float uZoom;
-
+uniform int uSteps;
 in vec2 vUv;
 out vec4 fragColor;
 
@@ -74,11 +74,9 @@ void main() {
 
   // Boxes
   {
-    const int STEPS = 30;
-    const int DRAW_COUNT = 3;
 
-    for (int i = 0; i < STEPS; i++) {
-      float n = float(i), s = float(STEPS);
+    for (int i = 0; i < uSteps; i++) {
+      float n = float(i), s = float(uSteps);
       float idx = (n + 1.) / s;
       float alt = n * (i % 2 == 0 ? 1. : -1.);
 

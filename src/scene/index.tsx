@@ -22,8 +22,18 @@ import { useRef } from 'react'
 import fragmentShader from './frag.fs'
 import vertexShader from './vert.vs'
 
+import { useControls } from 'leva'
 function Inner() {
   const ref = useRef<THREE.RawShaderMaterial>(null!)
+
+  const { steps } = useControls({
+    steps: {
+      value: 10,
+      min: 1,
+      max: 100,
+      step: 1
+    }
+  })
 
   useFrame(({ size, clock, camera }) => {
     if (ref.current) {
@@ -34,6 +44,8 @@ function Inner() {
       if (camera instanceof THREE.OrthographicCamera) {
         ref.current.uniforms.uZoom.value = camera.zoom
       }
+
+      ref.current.uniforms.uSteps.value = steps
     }
   })
 
@@ -48,7 +60,8 @@ function Inner() {
         uniforms={{
           uTime: new THREE.Uniform(0),
           uResolution: new THREE.Uniform(new THREE.Vector2(0, 0)),
-          uZoom: new THREE.Uniform(1)
+          uZoom: new THREE.Uniform(1),
+          uSteps: new THREE.Uniform(10)
         }}
         {...{ ref, vertexShader, fragmentShader }}
       />
