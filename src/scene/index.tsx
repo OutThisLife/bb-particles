@@ -26,13 +26,8 @@ import { useControls } from 'leva'
 function Inner() {
   const ref = useRef<THREE.RawShaderMaterial>(null!)
 
-  const { steps } = useControls({
-    steps: {
-      value: 10,
-      min: 1,
-      max: 100,
-      step: 1
-    }
+  const config = useControls({
+    steps: { value: 20, min: 1, max: 100, step: 1 }
   })
 
   useFrame(({ size, clock, camera }) => {
@@ -45,7 +40,7 @@ function Inner() {
         ref.current.uniforms.uZoom.value = camera.zoom
       }
 
-      ref.current.uniforms.uSteps.value = steps
+      ref.current.uniforms.uSteps.value = config.steps
     }
   })
 
