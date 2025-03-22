@@ -45,7 +45,6 @@ function Inner() {
         transparent
         side={THREE.FrontSide}
         glslVersion={THREE.GLSL3}
-        blending={THREE.AdditiveBlending}
         uniforms={{
           uTime: new THREE.Uniform(0),
           uResolution: new THREE.Uniform(new THREE.Vector2(0, 0)),

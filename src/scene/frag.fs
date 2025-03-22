@@ -12,7 +12,7 @@ out vec4 fragColor;
 #define t uTime
 #define saturate(x) clamp(x, 0.0, 1.0)
 #define rot(a) mat2(cos(a), -sin(a), sin(a), cos(a))
-#define aa max(length(1.0 / uResolution.xy * uZoom), 0.004)
+#define aa max(length(1.0 / uResolution.xy * uZoom), 0.001)
 
 const vec3 lin = vec3(.976, .969, .816);
 
@@ -32,7 +32,7 @@ vec3 getGradient(float x) {
   return col;
 }
 
-float edge(float d) { return smoothstep(aa, 0., abs(d) - aa); }
+float U(float d) { return smoothstep(aa, 0., abs(d) - aa); }
 
 float smin(float a, float b, float k) {
   float h = max(k - abs(a - b), 0.0) / k;
@@ -56,23 +56,11 @@ float sdBox(vec2 p, vec2 b) {
 
 float sdCircle(vec2 p, float r) { return length(p) - r; }
 
-void draw(int STEPS, vec2 p, inout vec4 col) {
-  for (int i = 0; i < STEPS; i++) {
-    float n = float(i);
-    float altN = n * (i % 2 == 0 ? 1. : -1.);
+void draw(vec2 p, inout vec4 col, float scale, float alpha) {
+  float d = U(sdBox(p, vec2(scale))) * alpha;
+  d = saturate(d);
 
-    vec2 p = p;
-    // p.x += .01 * altN;
-    // p.y -= .01 * altN;
-    p *= rot(radians(n * 85.));
-
-    float d = sdBox(p, vec2(.5)) - .0;
-    d = edge(d);
-    d *= max(.33, (n + 1.) / float(STEPS));
-    d = saturate(d);
-
-    col = mix(col, vec4(lin * getGradient((p.y * .13) + .2), d), d);
-  }
+  col = mix(col, vec4(lin * getGradient(abs(p.x + p.y)), d), d);
 }
 
 void main() {
@@ -82,19 +70,35 @@ void main() {
   uv /= uZoom;
 
   float t = uTime;
-
   vec4 col;
 
   // Boxes
   {
     vec2 p = uv * .5;
+    const int STEPS = 30;
+    const int DRAW_COUNT = 3;
 
-    const int STEPS = 25;
+    for (int i = 0; i < STEPS; i++) {
+      float n = float(i), s = float(STEPS);
+      float idx = (n + 1.) / s;
+      float alt = n * (i % 2 == 0 ? 1. : -1.);
 
-    draw(STEPS, p - vec2(.5, 0), col);
-    draw(STEPS, -p - vec2(.5, 0), col);
-    draw(STEPS, p - vec2(0, .5), col);
-    draw(STEPS, p + vec2(0, .5), col);
+      float scale = .1 + idx * .9;
+      scale = .5;
+
+      vec2 p = p * rot(radians(n * 5.));
+
+      draw(p * .68, col, scale, .4);
+      draw(p * pow(.68, 2.), col, scale, .2);
+      draw(p * pow(.68, 3.), col, scale, .15);
+
+      for (int j = 0; j < DRAW_COUNT; j++) {
+        float scaleFactor = pow(1.5, float(j));
+        float alpha = pow(0.5, float(j));
+
+        draw(p * scaleFactor, col, scale, max(alpha, .1));
+      }
+    }
   }
 
   fragColor = saturate(col);
