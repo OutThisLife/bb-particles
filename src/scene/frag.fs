@@ -4,22 +4,27 @@ uniform float uTime;
 uniform vec2 uResolution;
 uniform float uZoom;
 uniform int uSteps;
+uniform float uRotate;
+uniform float uScale;
+
 in vec2 vUv;
 out vec4 fragColor;
 
 #define PI 3.14159265358979323846
+#define PHI 1.61803398874989484820
+#define TAU 6.28318530717958647692
 
 #define t uTime
 #define saturate(x) clamp(x, 0.0, 1.0)
 #define rot(a) mat2(cos(a), -sin(a), sin(a), cos(a))
 #define dot2(x) dot(x, x)
 // #define aa max(length(1.0 / uResolution.xy * uZoom), 0.001)
-#define aa (5.0 / min(uResolution.x, uResolution.y)) * uZoom
+#define aa (2.0 / min(uResolution.x, uResolution.y)) * uZoom
 #define U(d) saturate(smoothstep(aa, 0., abs(d) - aa))
 
-const bool DEBUG = true;
-const vec3 baseColor = vec3(.976, .969, .816);
-const vec3 accentColor = vec3(0.8, 0.7, 0.6);
+const vec3 bgColor = vec3(0.00024, 0.00024, 0.00024);
+const vec3 baseColor = vec3(0.947, 0.934, 0.634); // #F9F7D0 in linear space
+const vec3 accentColor = baseColor * .5;
 
 float ndot(vec2 a, vec2 b) { return a.x * b.x - a.y * b.y; }
 
@@ -151,14 +156,13 @@ vec3 getGradient(vec2 p) {
   return col;
 }
 
-void draw(vec2 p, inout vec4 col, float scale, float alpha) {
-  float d = sdBox(p, vec2(scale));
-
-  // d = smin(d, sdSegment(p, vec2(0), vec2(2)), .2);
-  // d = smin(d, sdSegment(p * rot(PI), vec2(0), vec2(2)), .2);
+void draw(vec2 p, inout vec4 col, float alpha) {
+  float d = sdRoundedBox(p, vec2(.2), vec4(1. / TAU));
+  d = opUnion(d, sdHeart(p - vec2(0, .1)));
+  d = opUnion(d, sdHeart((p + vec2(0, .1)) * rot(PI)));
   d = U(d);
 
-  col = mix(col, vec4(getGradient(p), alpha), d);
+  col = mix(col, vec4(getGradient(vUv.xy), alpha), d);
 }
 
 void main() {
@@ -168,29 +172,19 @@ void main() {
   uv /= uZoom;
 
   float t = uTime;
-  vec4 col;
+  vec4 col = vec4(bgColor, 1.);
 
   for (int i = 0; i < uSteps; i++) {
     float n = float(i), s = float(uSteps);
     float idx = (n + 1.) / s;
     float alt = n * (i % 2 == 0 ? 1. : -1.);
 
-    float scale = .1 + idx * .9;
-    vec2 p = uv * .5 * rot(radians(n * 5.));
-    p.y += sin(p.y + p.x * 10. + (idx + 1.) * t) * .03;
+    float scale = 2. * pow(1. - (uScale / 10.), n);
+    vec2 p = uv;
+    p *= rot(radians(n * (uRotate * 10.)));
 
-    if (DEBUG) {
-      draw(p, col, scale, idx);
-    } else {
-      draw(p * pow(.82, 2.), col, scale, idx * .05);
-      draw(p * pow(.82, 3.), col, scale, idx * .01);
-      draw(p * pow(.82, 4.), col, scale, idx * .02);
-      draw(p, col, scale, idx * 3.);
-      draw(p * 1.5, col, scale, idx * .1);
-      draw(p * pow(1.5, 2.), col, scale, idx * .1);
-      draw(p * pow(1.5, 3.), col, scale, idx * .05);
-      draw(p * pow(1.5, 4.), col, scale, idx * .05);
-    }
+    draw(p * scale, col, idx);
+    draw(p / scale, col, idx);
   }
 
   fragColor = saturate(col);

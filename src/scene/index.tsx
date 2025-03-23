@@ -22,13 +22,14 @@ import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import fragmentShader from './frag.fs'
 import vertexShader from './vert.vs'
-import { config } from 'process'
 
 function Inner() {
   const ref = useRef<THREE.RawShaderMaterial>(null!)
 
   const config = useSmoothControls('Scene', {
-    steps: { value: 20, min: 1, max: 100, step: 1 }
+    steps: { value: 27, min: 1, max: 100, step: 1 },
+    rotate: { value: -0.2, min: -1, max: 1, step: 0.1 },
+    scale: { value: 0, min: 0, max: 1, step: 0.1 }
   })
 
   useFrame(({ size, clock, camera }) => {
@@ -42,6 +43,8 @@ function Inner() {
       }
 
       ref.current.uniforms.uSteps.value = config.steps
+      ref.current.uniforms.uRotate.value = config.rotate
+      ref.current.uniforms.uScale.value = config.scale
     }
   })
 
@@ -58,7 +61,9 @@ function Inner() {
           uTime: new THREE.Uniform(0),
           uResolution: new THREE.Uniform(new THREE.Vector2(0, 0)),
           uZoom: new THREE.Uniform(1),
-          uSteps: new THREE.Uniform(10)
+          uSteps: new THREE.Uniform(10),
+          uRotate: new THREE.Uniform(0.1),
+          uScale: new THREE.Uniform(0.1)
         }}
         {...{ ref, vertexShader, fragmentShader }}
       />
@@ -68,16 +73,7 @@ function Inner() {
 
 export default function Scene() {
   return (
-    <Canvas
-      orthographic
-      style={{ width: '100svw', height: '100svh' }}
-      gl={{
-        antialias: true,
-        alpha: true,
-        stencil: false,
-        depth: false,
-        powerPreference: 'high-performance'
-      }}>
+    <Canvas orthographic style={{ width: '100svw', height: '100svh' }}>
       <Suspense fallback={<Loader />}>
         <Inner />
       </Suspense>

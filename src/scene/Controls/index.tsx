@@ -23,7 +23,7 @@ export default function Controls() {
         camera.right = (1 * aspect) / 2
         camera.top = 1 / 2
         camera.bottom = 1 / -2
-        camera.zoom = aspect * 0.2
+        camera.zoom = aspect * 0.5
 
         camera.updateProjectionMatrix()
       }
