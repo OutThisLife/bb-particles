@@ -17,16 +17,17 @@ import { Suspense } from 'react'
 import * as THREE from 'three'
 import Controls from './Controls'
 
+import { useSmoothControls } from '@/hooks/useSmoothControls'
 import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import fragmentShader from './frag.fs'
 import vertexShader from './vert.vs'
+import { config } from 'process'
 
-import { useControls } from 'leva'
 function Inner() {
   const ref = useRef<THREE.RawShaderMaterial>(null!)
 
-  const config = useControls({
+  const config = useSmoothControls('Scene', {
     steps: { value: 20, min: 1, max: 100, step: 1 }
   })
 
@@ -52,6 +53,7 @@ function Inner() {
         transparent
         side={THREE.FrontSide}
         glslVersion={THREE.GLSL3}
+        blending={THREE.AdditiveBlending}
         uniforms={{
           uTime: new THREE.Uniform(0),
           uResolution: new THREE.Uniform(new THREE.Vector2(0, 0)),
