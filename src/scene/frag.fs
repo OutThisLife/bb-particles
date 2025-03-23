@@ -13,7 +13,9 @@ out vec4 fragColor;
 #define saturate(x) clamp(x, 0.0, 1.0)
 #define rot(a) mat2(cos(a), -sin(a), sin(a), cos(a))
 #define dot2(x) dot(x, x)
-#define aa max(length(1.0 / uResolution.xy * uZoom), 0.001)
+// #define aa max(length(1.0 / uResolution.xy * uZoom), 0.001)
+#define aa (5.0 / min(uResolution.x, uResolution.y)) * uZoom
+#define U(d) saturate(smoothstep(aa, 0., abs(d) - aa))
 
 const bool DEBUG = true;
 const vec3 baseColor = vec3(.976, .969, .816);
@@ -149,15 +151,13 @@ vec3 getGradient(vec2 p) {
   return col;
 }
 
-float U(float d) { return saturate(smoothstep(aa, 0., abs(d) - aa)); }
-
 void draw(vec2 p, inout vec4 col, float scale, float alpha) {
   float d = sdBox(p, vec2(scale));
 
-  d = smin(d, sdSegment(p, vec2(0), vec2(2)), .2);
-  d = smin(d, sdSegment(p * rot(PI), vec2(0), vec2(2)), .2);
-
+  // d = smin(d, sdSegment(p, vec2(0), vec2(2)), .2);
+  // d = smin(d, sdSegment(p * rot(PI), vec2(0), vec2(2)), .2);
   d = U(d);
+
   col = mix(col, vec4(getGradient(p), alpha), d);
 }
 
