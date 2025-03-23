@@ -154,7 +154,7 @@ float U(float d) { return saturate(smoothstep(aa, 0., abs(d) - aa)); }
 
 void draw(vec2 p, inout vec4 col, float scale, float alpha) {
   float d = sdRoundedBox(p, vec2(scale), vec4(.1));
-  d = opSubtraction(d, sdCircle(p - .5, scale));
+  d = opUnion(d, sdCircle(p - vec2(0, 1), scale));
 
   d = U(d);
   col = mix(col, vec4(getGradient(p), alpha), d);
