@@ -141,10 +141,9 @@ float sdSegment(in vec2 p, in vec2 a, in vec2 b) {
 }
 
 vec3 getGradient(vec2 p) {
-  float d = length(p);
-  vec3 col = mix(baseColor, accentColor, smoothstep(0.0, 1.0, d));
+  vec3 col = mix(baseColor, accentColor, length(p) - .1);
 
-  d = atan(p.y, p.x) / (2.0 * PI) + 0.5;
+  float d = atan(p.y, p.x) / (2.0 * PI) + 0.5;
   col *= 1.0 + 0.2 * sin(d * 6.0);
 
   return col;
@@ -178,6 +177,7 @@ void main() {
 
     float scale = .1 + idx * .9;
     vec2 p = uv * .5 * rot(radians(n * 5.));
+    p.y += sin(p.y + p.x * 10. + (idx + 1.) * t) * .03;
 
     if (DEBUG) {
       draw(p, col, scale, idx);
