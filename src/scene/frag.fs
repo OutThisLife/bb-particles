@@ -153,8 +153,10 @@ vec3 getGradient(vec2 p) {
 float U(float d) { return saturate(smoothstep(aa, 0., abs(d) - aa)); }
 
 void draw(vec2 p, inout vec4 col, float scale, float alpha) {
-  float d = sdRoundedBox(p, vec2(scale), vec4(.1));
-  d = opUnion(d, sdCircle(p - vec2(0, 1), scale));
+  float d = sdBox(p, vec2(scale));
+
+  d = smin(d, sdSegment(p, vec2(0), vec2(2)), .2);
+  d = smin(d, sdSegment(p * rot(PI), vec2(0), vec2(2)), .2);
 
   d = U(d);
   col = mix(col, vec4(getGradient(p), alpha), d);
