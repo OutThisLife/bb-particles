@@ -19,11 +19,11 @@ out vec4 fragColor;
 #define rot(a) mat2(cos(a), -sin(a), sin(a), cos(a))
 #define dot2(x) dot(x, x)
 // #define aa max(length(1.0 / uResolution.xy * uZoom), 0.001)
-#define aa (2.0 / min(uResolution.x, uResolution.y)) * uZoom
+#define aa min(.0005, (2.0 / min(uResolution.x, uResolution.y)) / uZoom)
 #define U(d) saturate(smoothstep(aa, 0., abs(d) - aa))
 
 const vec3 bgColor = vec3(0.00024, 0.00024, 0.00024);
-const vec3 baseColor = vec3(0.947, 0.934, 0.634); // #F9F7D0 in linear space
+const vec3 baseColor = vec3(0.992, 0.967, 0.504);
 const vec3 accentColor = baseColor * .5;
 
 float ndot(vec2 a, vec2 b) { return a.x * b.x - a.y * b.y; }
@@ -45,6 +45,8 @@ float opUnion(float d1, float d2) { return min(d1, d2); }
 float opSubtraction(float d1, float d2) { return max(-d1, d2); }
 float opIntersection(float d1, float d2) { return max(d1, d2); }
 float opXor(float d1, float d2) { return max(min(d1, d2), -max(d1, d2)); }
+vec2 opRep(vec2 p, vec2 c) { return mod(p, c) - 0. * c; }
+vec3 opRep(vec3 p, vec3 c) { return mod(p, c) - 0. * c; }
 
 float sdiff(float d1, float d2, float k) {
   float h = clamp(0.5 - 0.5 * (d2 + d1) / k, 0.0, 1.0);
@@ -147,22 +149,28 @@ float sdSegment(in vec2 p, in vec2 a, in vec2 b) {
   return length(pa - ba * h);
 }
 
-vec3 getGradient(vec2 p) {
-  vec3 col = mix(baseColor, accentColor, length(p) - .1);
+vec4 getGradient(float d, float a) {
+  float t = saturate(abs(d) * 2.);
+  t = smoothstep(0., 1.2, t);
 
-  float d = atan(p.y, p.x) / (2.0 * PI) + 0.5;
-  col *= 1.0 + 0.2 * sin(d * 6.0);
-
-  return col;
+  return vec4(mix(baseColor, baseColor * .02, t), a);
 }
 
+/**
+ * Draw functions [per column in design]
+ */
 void draw(vec2 p, inout vec4 col, float alpha) {
-  float d = sdRoundedBox(p, vec2(.2), vec4(1. / TAU));
-  d = opUnion(d, sdHeart(p - vec2(0, .1)));
-  d = opUnion(d, sdHeart((p + vec2(0, .1)) * rot(PI)));
-  d = U(d);
+  float d;
 
-  col = mix(col, vec4(getGradient(vUv.xy), alpha), d);
+  // Column 4
+  {
+    d = sdRoundedBox(p, vec2(.2), vec4(.05));
+    d = min(d, sdSegment(p, vec2(-2), vec2(2)));
+    d = min(d, sdSegment(p, vec2(-2, 2), vec2(2, -2)));
+    d = smin(d, sdHeart(p * 2. - .2), .1);
+  }
+
+  col = mix(col, getGradient(p.y, alpha), U(d));
 }
 
 void main() {
@@ -179,7 +187,8 @@ void main() {
     float idx = (n + 1.) / s;
     float alt = n * (i % 2 == 0 ? 1. : -1.);
 
-    float scale = 2. * pow(1. - (uScale / 10.), n);
+    float scale = pow(1. - (uScale / 30.), n);
+
     vec2 p = uv;
     p *= rot(radians(n * (uRotate * 10.)));
 
