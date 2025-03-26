@@ -27,9 +27,9 @@ function Inner() {
   const ref = useRef<THREE.RawShaderMaterial>(null!)
 
   const config = useSmoothControls('Scene', {
-    steps: { value: 27, min: 1, max: 100, step: 1 },
-    rotate: { value: -0.2, min: -1, max: 1, step: 0.1 },
-    scale: { value: 0, min: 0, max: 1, step: 0.1 }
+    steps: { value: 9, min: 1, max: 100, step: 1 },
+    rotate: { value: 0.3, min: -1, max: 1, step: 0.1 },
+    scale: { value: 1, min: 0, max: 1, step: 0.1 }
   })
 
   useFrame(({ size, clock, camera }) => {

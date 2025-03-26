@@ -164,37 +164,46 @@ void draw(vec2 p, inout vec4 col, float alpha) {
 
   // Column 4
   {
-    d = sdRoundedBox(p, vec2(.2), vec4(.05));
+    d = sdRoundedBox(p, vec2(.18), vec4(.07));
     d = min(d, sdSegment(p, vec2(-2), vec2(2)));
     d = min(d, sdSegment(p, vec2(-2, 2), vec2(2, -2)));
-    d = smin(d, sdHeart(p * 2. - .2), .1);
   }
 
   col = mix(col, getGradient(p.y, alpha), U(d));
+}
+
+void drawIteration(vec2 uv, inout vec4 col, in int steps, in float rotate,
+                   in float scale) {
+  for (int i = 0; i < steps; i++) {
+    float n = float(i), s = float(steps);
+    float idx = (n + 1.) / s;
+    float alt = n * (i % 2 == 0 ? 1. : -1.);
+
+    float t = pow(n / s, 2.);
+    t = smoothstep(0., 1., t);
+    t = sin(t * PI * 0.5);
+
+    float scale = 1. - (t * scale * 0.45);
+    float angle = (n / s) * rotate * 180.0;
+
+    mat2 m0 = rot(radians(angle));
+    mat2 m1 = rot(radians(-angle));
+
+    draw((uv * m0) * scale, col, idx);
+  }
 }
 
 void main() {
   vec2 st = gl_FragCoord.xy / uResolution.xy;
   vec2 uv = (vUv - 0.5) * 2.0;
   uv *= uResolution.xy / min(uResolution.x, uResolution.y);
-  uv /= uZoom;
+  uv /= 3. * uZoom;
 
   float t = uTime;
   vec4 col = vec4(bgColor, 1.);
 
-  for (int i = 0; i < uSteps; i++) {
-    float n = float(i), s = float(uSteps);
-    float idx = (n + 1.) / s;
-    float alt = n * (i % 2 == 0 ? 1. : -1.);
-
-    float scale = pow(1. - (uScale / 30.), n);
-
-    vec2 p = uv;
-    p *= rot(radians(n * (uRotate * 10.)));
-
-    draw(p * scale, col, idx);
-    draw(p / scale, col, idx);
-  }
+  drawIteration(uv, col, 15, .5, 0.);
+  drawIteration(uv * .8, col, 20, .5, 1.);
 
   fragColor = saturate(col);
 }
