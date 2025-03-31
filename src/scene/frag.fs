@@ -3,6 +3,7 @@ precision highp float;
 uniform float uTime;
 uniform vec2 uResolution;
 uniform float uZoom;
+uniform vec3 uPan;
 uniform int uSteps;
 uniform float uRotate;
 uniform float uScale;
@@ -18,9 +19,8 @@ out vec4 fragColor;
 #define saturate(x) clamp(x, 0.0, 1.0)
 #define rot(a) mat2(cos(a), -sin(a), sin(a), cos(a))
 #define dot2(x) dot(x, x)
-// #define aa max(length(1.0 / uResolution.xy * uZoom), 0.001)
 #define aa min(.0005, (2.0 / min(uResolution.x, uResolution.y)) / uZoom)
-#define U(d) saturate(smoothstep(aa, 0., abs(d) - aa))
+#define U(d) smoothstep(aa, 0., abs(d) - aa)
 
 const vec3 bgColor = vec3(0.00024, 0.00024, 0.00024);
 const vec3 baseColor = vec3(0.992, 0.967, 0.504);
@@ -47,6 +47,21 @@ float opIntersection(float d1, float d2) { return max(d1, d2); }
 float opXor(float d1, float d2) { return max(min(d1, d2), -max(d1, d2)); }
 vec2 opRep(vec2 p, vec2 c) { return mod(p, c) - 0. * c; }
 vec3 opRep(vec3 p, vec3 c) { return mod(p, c) - 0. * c; }
+
+float opSmoothUnion(float d1, float d2, float k) {
+  float h = clamp(0.5 + 0.5 * (d2 - d1) / k, 0.0, 1.0);
+  return mix(d2, d1, h) - k * h * (1.0 - h);
+}
+
+float opSmoothSubtraction(float d1, float d2, float k) {
+  float h = clamp(0.5 - 0.5 * (d2 + d1) / k, 0.0, 1.0);
+  return mix(d2, -d1, h) + k * h * (1.0 - h);
+}
+
+float opSmoothIntersection(float d1, float d2, float k) {
+  float h = clamp(0.5 - 0.5 * (d2 - d1) / k, 0.0, 1.0);
+  return mix(d2, d1, h) + k * h * (1.0 - h);
+}
 
 float sdiff(float d1, float d2, float k) {
   float h = clamp(0.5 - 0.5 * (d2 + d1) / k, 0.0, 1.0);
@@ -153,57 +168,52 @@ vec4 getGradient(float d, float a) {
   float t = saturate(abs(d) * 2.);
   t = smoothstep(0., 1.2, t);
 
-  return vec4(mix(baseColor, baseColor * .02, t), a);
-}
-
-/**
- * Draw functions [per column in design]
- */
-void draw(vec2 p, inout vec4 col, float alpha) {
-  float d;
-
-  // Column 4
-  {
-    d = sdRoundedBox(p, vec2(.18), vec4(.07));
-    d = min(d, sdSegment(p, vec2(-2), vec2(2)));
-    d = min(d, sdSegment(p, vec2(-2, 2), vec2(2, -2)));
-  }
-
-  col = mix(col, getGradient(p.y, alpha), U(d));
-}
-
-void drawIteration(vec2 uv, inout vec4 col, in int steps, in float rotate,
-                   in float scale) {
-  for (int i = 0; i < steps; i++) {
-    float n = float(i), s = float(steps);
-    float idx = (n + 1.) / s;
-    float alt = n * (i % 2 == 0 ? 1. : -1.);
-
-    float t = pow(n / s, 2.);
-    t = smoothstep(0., 1., t);
-    t = sin(t * PI * 0.5);
-
-    float scale = 1. - (t * scale * 0.45);
-    float angle = (n / s) * rotate * 180.0;
-
-    mat2 m0 = rot(radians(angle));
-    mat2 m1 = rot(radians(-angle));
-
-    draw((uv * m0) * scale, col, idx);
-  }
+  return vec4(mix(baseColor * 1.8, bgColor, t), a);
 }
 
 void main() {
   vec2 st = gl_FragCoord.xy / uResolution.xy;
   vec2 uv = (vUv - 0.5) * 2.0;
   uv *= uResolution.xy / min(uResolution.x, uResolution.y);
-  uv /= 3. * uZoom;
+  uv /= uZoom * 3.;
+  uv += uPan.xy;
 
   float t = uTime;
   vec4 col = vec4(bgColor, 1.);
 
-  drawIteration(uv, col, 15, .5, 0.);
-  drawIteration(uv * .8, col, 20, .5, 1.);
+  for (int i = 0; i < uSteps; i++) {
+    float n = float(i), s = float(uSteps);
+    float idx = (n + 1.) / s;
+    float alt = n * (i % 2 == 0 ? 1. : -1.);
+
+    float t = pow(idx, 2.);
+    // t = smoothstep(0., 1., t);
+    t = sin(t * PI * 0.5);
+
+    float scale = 1. - (t * (uScale * .88));
+    // scale = pow(1. - (uScale * idx), 1.2);
+    float angle = idx * uRotate * t * 180.0;
+
+    vec2 p = (uv * rot(radians(angle))) * 1.;
+    float d;
+
+    {
+      d = sdRoundedBox(p, saturate(vec2(.1) / scale), vec4(.1));
+      d = opSmoothSubtraction(d, sdEquilateralTriangle(p, .5), .2);
+      // d = opSmoothUnion(d, sdSegment(p, vec2(-2), vec2(2)), .1);
+      // d = opSmoothIntersection(d, sdSegment(p, vec2(-2, 2), vec2(2, -2)),
+      // .2);
+
+      col = mix(col, getGradient(length(p), idx), U(d));
+    }
+
+    {
+      d = sdSegment(p, vec2(-2), vec2(2));
+      d = min(d, sdSegment(p, vec2(-2, 2), vec2(2, -2)));
+
+      // col = mix(col, getGradient(atan(p.x, p.y), idx), 1. * U(d));
+    }
+  }
 
   fragColor = saturate(col);
 }

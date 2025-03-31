@@ -27,9 +27,9 @@ function Inner() {
   const ref = useRef<THREE.RawShaderMaterial>(null!)
 
   const config = useSmoothControls('Scene', {
-    steps: { value: 9, min: 1, max: 100, step: 1 },
-    rotate: { value: 0.3, min: -1, max: 1, step: 0.1 },
-    scale: { value: 1, min: 0, max: 1, step: 0.1 }
+    steps: { value: 26, min: 1, max: 100, step: 1 },
+    rotate: { value: 1, min: -1, max: 1, step: 0.1 },
+    scale: { value: 0.6, min: 0, max: 1, step: 0.1 }
   })
 
   useFrame(({ size, clock, camera }) => {
@@ -40,6 +40,7 @@ function Inner() {
 
       if (camera instanceof THREE.OrthographicCamera) {
         ref.current.uniforms.uZoom.value = camera.zoom
+        ref.current.uniforms.uPan.value = camera.position.clone()
       }
 
       ref.current.uniforms.uSteps.value = config.steps
@@ -63,7 +64,8 @@ function Inner() {
           uZoom: new THREE.Uniform(1),
           uSteps: new THREE.Uniform(10),
           uRotate: new THREE.Uniform(0.1),
-          uScale: new THREE.Uniform(0.1)
+          uScale: new THREE.Uniform(0.1),
+          uPan: new THREE.Uniform(new THREE.Vector3())
         }}
         {...{ ref, vertexShader, fragmentShader }}
       />
