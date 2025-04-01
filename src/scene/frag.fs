@@ -4,9 +4,11 @@ uniform float uTime;
 uniform vec2 uResolution;
 uniform float uZoom;
 uniform vec3 uPan;
+
 uniform int uSteps;
 uniform float uRotate;
 uniform float uScale;
+uniform float uLight;
 
 in vec2 vUv;
 out vec4 fragColor;
@@ -19,12 +21,11 @@ out vec4 fragColor;
 #define saturate(x) clamp(x, 0.0, 1.0)
 #define rot(a) mat2(cos(a), -sin(a), sin(a), cos(a))
 #define dot2(x) dot(x, x)
-#define aa min(.0005, (2.0 / min(uResolution.x, uResolution.y)) / uZoom)
+#define aa min(.0007, (2.0 / min(uResolution.x, uResolution.y)) / uZoom)
 #define U(d) smoothstep(aa, 0., abs(d) - aa)
 
 const vec3 bgColor = vec3(0.00024, 0.00024, 0.00024);
-const vec3 baseColor = vec3(0.992, 0.967, 0.504);
-const vec3 accentColor = baseColor * .5;
+const vec3 baseColor = mix(vec3(1, .992, .867), vec3(.992, .967, .504), .5);
 
 float ndot(vec2 a, vec2 b) { return a.x * b.x - a.y * b.y; }
 
@@ -164,11 +165,15 @@ float sdSegment(in vec2 p, in vec2 a, in vec2 b) {
   return length(pa - ba * h);
 }
 
-vec4 getGradient(float d, float a) {
-  float t = saturate(abs(d) * 2.);
-  t = smoothstep(0., 1.2, t);
+vec3 calcGradient(float d, vec2 p, float angle) {
+  p *= rot(radians(angle));
+  float a = atan(p.y, p.x);
 
-  return vec4(mix(baseColor * 1.8, bgColor, t), a);
+  d *= abs(sin(a + PI * .25));
+  d = pow(d, .75);
+  d = 1. - smoothstep(.2, 1., d);
+
+  return mix(baseColor, bgColor, d);
 }
 
 void main() {
@@ -179,39 +184,37 @@ void main() {
   uv += uPan.xy;
 
   float t = uTime;
-  vec4 col = vec4(bgColor, 1.);
+  vec4 col = vec4(bgColor, 0);
+  const float r = .07;
+  float s = float(uSteps);
 
   for (int i = 0; i < uSteps; i++) {
-    float n = float(i), s = float(uSteps);
-    float idx = (n + 1.) / s;
+    float n = float(i);
+    float idx = n / s;
     float alt = n * (i % 2 == 0 ? 1. : -1.);
 
-    float t = pow(idx, 2.);
-    // t = smoothstep(0., 1., t);
-    t = sin(t * PI * 0.5);
-
-    float scale = 1. - (t * (uScale * .88));
-    // scale = pow(1. - (uScale * idx), 1.2);
-    float angle = idx * uRotate * t * 180.0;
-
-    vec2 p = (uv * rot(radians(angle))) * 1.;
-    float d;
+    float scale = saturate(1. - (idx * uScale));
+    float angle = idx * uRotate * 180.0;
+    float alpha = saturate(1. - (idx * .35));
 
     {
-      d = sdRoundedBox(p, saturate(vec2(.1) / scale), vec4(.1));
-      d = opSmoothSubtraction(d, sdEquilateralTriangle(p, .5), .2);
-      // d = opSmoothUnion(d, sdSegment(p, vec2(-2), vec2(2)), .1);
-      // d = opSmoothIntersection(d, sdSegment(p, vec2(-2, 2), vec2(2, -2)),
-      // .2);
+      vec2 p = uv * rot(radians(angle));
 
-      col = mix(col, getGradient(length(p), idx), U(d));
+      float d = sdRoundedBox(p, vec2(r) / scale, vec4(r));
+      d = U(d);
+      d *= alpha;
+
+      col = mix(col, vec4(calcGradient(d, p, uLight), 1), d);
     }
 
     {
-      d = sdSegment(p, vec2(-2), vec2(2));
-      d = min(d, sdSegment(p, vec2(-2, 2), vec2(2, -2)));
+      vec2 p = uv * rot(radians(angle * -2.));
 
-      // col = mix(col, getGradient(atan(p.x, p.y), idx), 1. * U(d));
+      float d = sdRoundedBox(p, vec2(r) / scale, vec4(r));
+      d = U(d);
+      d *= alpha;
+
+      col = mix(col, vec4(calcGradient(d, p, uLight), 1), d);
     }
   }
 

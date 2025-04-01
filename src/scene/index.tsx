@@ -27,9 +27,10 @@ function Inner() {
   const ref = useRef<THREE.RawShaderMaterial>(null!)
 
   const config = useSmoothControls('Scene', {
-    steps: { value: 26, min: 1, max: 100, step: 1 },
-    rotate: { value: 1, min: -1, max: 1, step: 0.1 },
-    scale: { value: 0.6, min: 0, max: 1, step: 0.1 }
+    steps: { value: 19, min: 1, max: 100, step: 1 },
+    rotate: { value: 0.5, min: -1, max: 1, step: 0.1 },
+    light: { value: 150, min: 0, max: 360, step: 1 },
+    scale: { value: 0.9, min: 0, max: 1, step: 0.1 }
   })
 
   useFrame(({ size, clock, camera }) => {
@@ -46,6 +47,7 @@ function Inner() {
       ref.current.uniforms.uSteps.value = config.steps
       ref.current.uniforms.uRotate.value = config.rotate
       ref.current.uniforms.uScale.value = config.scale
+      ref.current.uniforms.uLight.value = config.light
     }
   })
 
@@ -65,7 +67,8 @@ function Inner() {
           uSteps: new THREE.Uniform(10),
           uRotate: new THREE.Uniform(0.1),
           uScale: new THREE.Uniform(0.1),
-          uPan: new THREE.Uniform(new THREE.Vector3())
+          uPan: new THREE.Uniform(new THREE.Vector3()),
+          uLight: new THREE.Uniform(150)
         }}
         {...{ ref, vertexShader, fragmentShader }}
       />
