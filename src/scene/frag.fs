@@ -167,11 +167,12 @@ float sdSegment(in vec2 p, in vec2 a, in vec2 b) {
 
 vec3 calcGradient(float d, vec2 p, float angle) {
   p *= rot(radians(angle));
-  float a = atan(p.y, p.x);
 
+  float a = atan(p.y, p.x);
   d *= abs(sin(a + PI * .25));
   d = pow(d, .75);
-  d = 1. - smoothstep(.2, 1., d);
+  d = 1. - smoothstep(.1, 1., d);
+  d = saturate(d);
 
   return mix(baseColor, bgColor, d);
 }
@@ -195,27 +196,32 @@ void main() {
 
     float scale = saturate(1. - (idx * uScale));
     float angle = idx * uRotate * 180.0;
-    float alpha = saturate(1. - (idx * .35));
+    float alpha = saturate(1. - (idx * .2));
+
+    float d;
+    vec2 gv = uv;
+    vec3 lin;
 
     {
       vec2 p = uv * rot(radians(angle));
 
-      float d = sdRoundedBox(p, vec2(r) / scale, vec4(r));
-      d = U(d);
-      d *= alpha;
+      float d0 = U(sdRoundedBox(p, vec2(r) / scale, vec4(r))) * alpha;
+      d = opIntersection(d, d0);
 
-      col = mix(col, vec4(calcGradient(d, p, uLight), 1), d);
+      lin = mix(lin, calcGradient(d0, p, uLight), d0);
     }
 
     {
-      vec2 p = uv * rot(radians(angle * -2.));
+      vec2 p = uv * rot(radians(angle * -1.));
 
-      float d = sdRoundedBox(p, vec2(r) / scale, vec4(r));
-      d = U(d);
-      d *= alpha;
+      float d0 = U(sdRoundedBox(p, vec2(r) / scale, vec4(r))) * alpha;
+      d = opIntersection(d, d0);
 
-      col = mix(col, vec4(calcGradient(d, p, uLight), 1), d);
+      // lin = mix(lin, calcGradient(d0, p, uLight), d0);
     }
+
+    d = saturate(pow(d, 4.));
+    col = mix(col, vec4(lin, alpha), d);
   }
 
   fragColor = saturate(col);
