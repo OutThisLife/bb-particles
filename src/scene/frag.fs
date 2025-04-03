@@ -166,9 +166,9 @@ float sdSegment(in vec2 p, in vec2 a, in vec2 b) {
 }
 
 vec3 calcGradient(float d, vec2 p, float angle) {
-  p *= rot(radians(angle));
+  vec2 q = p * rot(radians(angle));
 
-  float a = atan(p.y, p.x);
+  float a = atan(q.y, q.x);
   d *= abs(sin(a + PI * .25));
   d = pow(d, .75);
   d = 1. - smoothstep(.1, 1., d);
@@ -199,28 +199,18 @@ void main() {
     float alpha = saturate(1. - (idx * .2));
 
     float d;
-    vec2 gv = uv;
-    vec3 lin;
 
-    {
-      vec2 p = uv * rot(radians(angle));
+    vec2 p1 = uv * rot(radians(angle));
+    float d1 = U(sdRoundedBox(p1, vec2(r) / scale, vec4(r))) * alpha;
 
-      float d0 = U(sdRoundedBox(p, vec2(r) / scale, vec4(r))) * alpha;
-      d = opIntersection(d, d0);
+    vec2 p2 = uv * rot(radians(angle * -.4));
+    float d2 = U(sdRoundedBox(p2, vec2(r) / scale, vec4(r))) * alpha;
 
-      lin = mix(lin, calcGradient(d0, p, uLight), d0);
-    }
+    d = opSmoothUnion(d1, d2, 0.0);
 
-    {
-      vec2 p = uv * rot(radians(angle * -1.));
+    vec3 lin =
+        mix(calcGradient(d1, p1, uLight), calcGradient(d2, p2, uLight), .5);
 
-      float d0 = U(sdRoundedBox(p, vec2(r) / scale, vec4(r))) * alpha;
-      d = opIntersection(d, d0);
-
-      // lin = mix(lin, calcGradient(d0, p, uLight), d0);
-    }
-
-    d = saturate(pow(d, 4.));
     col = mix(col, vec4(lin, alpha), d);
   }
 
