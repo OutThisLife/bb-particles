@@ -171,7 +171,7 @@ vec3 calcGradient(float d, vec2 p, float angle) {
   float a = atan(q.y, q.x);
   d *= abs(sin(a + PI * .25));
   d = pow(d, .75);
-  d = 1. - smoothstep(.1, 1., d);
+  d = smoothstep(.3, .9, d);
   d = saturate(d);
 
   return mix(baseColor, bgColor, d);
@@ -198,20 +198,19 @@ void main() {
     float angle = idx * uRotate * 180.0;
     float alpha = saturate(1. - (idx * .2));
 
-    float d;
-
     vec2 p1 = uv * rot(radians(angle));
     float d1 = U(sdRoundedBox(p1, vec2(r) / scale, vec4(r))) * alpha;
 
-    vec2 p2 = uv * rot(radians(angle * -.4));
+    vec2 p2 = uv * rot(radians(angle * 1.5));
     float d2 = U(sdRoundedBox(p2, vec2(r) / scale, vec4(r))) * alpha;
 
-    d = opSmoothUnion(d1, d2, 0.0);
+    vec4 lin0 = vec4(calcGradient(d1, uv, uLight), alpha);
+    vec4 lin1 = vec4(calcGradient(d2, uv, 1. - uLight), alpha);
 
-    vec3 lin =
-        mix(calcGradient(d1, p1, uLight), calcGradient(d2, p2, uLight), .5);
+    vec4 c0 = mix(col, lin0, d1);
+    vec4 c1 = mix(col, lin1, d2);
 
-    col = mix(col, vec4(lin, alpha), d);
+    col = max(c0, c1);
   }
 
   fragColor = saturate(col);
