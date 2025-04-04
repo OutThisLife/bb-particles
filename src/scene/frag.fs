@@ -201,11 +201,11 @@ void main() {
     vec2 p1 = uv * rot(radians(angle));
     float d1 = U(sdRoundedBox(p1, vec2(r) / scale, vec4(r))) * alpha;
 
-    vec2 p2 = uv * rot(radians(angle * 1.5));
+    vec2 p2 = uv * rot(radians(angle * -.4));
     float d2 = U(sdRoundedBox(p2, vec2(r) / scale, vec4(r))) * alpha;
 
-    vec4 lin0 = vec4(calcGradient(d1, uv, uLight), alpha);
-    vec4 lin1 = vec4(calcGradient(d2, uv, 1. - uLight), alpha);
+    vec4 lin0 = vec4(calcGradient(d1, uv, uLight), d1 * alpha);
+    vec4 lin1 = vec4(calcGradient(d2, uv, 1. - uLight), d2 * alpha);
 
     vec4 c0 = mix(col, lin0, d1);
     vec4 c1 = mix(col, lin1, d2);
