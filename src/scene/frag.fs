@@ -23,6 +23,7 @@ out vec4 fragColor;
 #define dot2(x) dot(x, x)
 #define aa min(.0007, (2.0 / min(uResolution.x, uResolution.y)) / uZoom)
 #define U(d) smoothstep(aa, 0., abs(d) - aa)
+#define hue(h) vec3(cos(h), sin(h), 0.)
 
 const vec3 bgColor = vec3(0.00024, 0.00024, 0.00024);
 const vec3 baseColor = mix(vec3(1, .992, .867), vec3(.992, .967, .504), .5);
@@ -215,7 +216,6 @@ void main() {
     vec4 c1 = mix(col, lin1, d2);
 
     col = max(c0, c1);
-    // col = c0;
   }
 
   fragColor = saturate(col);
