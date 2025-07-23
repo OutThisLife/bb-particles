@@ -31,6 +31,7 @@ export default function Cursor(props: MeshProps) {
   })
 
   return (
+    // @ts-expect-error
     <Billboard {...{ ref, ...props }}>
       <mesh rotation={[-Math.PI / 4, Math.PI / 4, 0]}>
         <boxGeometry args={[0.05, 0.05, 0.05]} />

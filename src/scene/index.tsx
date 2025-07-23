@@ -8,8 +8,9 @@ import { lazy, Suspense, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import fragmentShader from './frag.fs'
 import vertexShader from './vert.vs'
-const Effects = lazy(() => import('./Effects'))
-const Controls = lazy(() => import('./Controls'))
+
+const Effects = lazy(() => import('./effects'))
+const Controls = lazy(() => import('./controls'))
 
 export const PARTICLE_COUNT = 1e4
 
