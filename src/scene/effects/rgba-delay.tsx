@@ -11,6 +11,7 @@ const RGBADelayShader = {
     frame7: { value: null },
     frame8: { value: null },
     frame9: { value: null },
+    motionFrame: { value: null },
     dryWet: { value: 1.0 },
     gain: { value: 1.0 },
     refractAmount: { value: 0.001 },
@@ -40,6 +41,7 @@ const RGBADelayShader = {
     uniform sampler2D frame7;
     uniform sampler2D frame8;
     uniform sampler2D frame9;
+    uniform sampler2D motionFrame;
     uniform float dryWet;
     uniform float gain;
     uniform float refractAmount;
@@ -49,6 +51,10 @@ const RGBADelayShader = {
     uniform int blueDelay;
     uniform int alphaDelay;
     varying vec2 vUv;
+
+    #ifndef saturate
+    #define saturate(x) clamp(x, 0.0, 1.0)
+    #endif
 
     vec4 getFrame(int i, vec2 uv) {
       if (i == 0) return texture2D(frame0, uv);
@@ -64,18 +70,24 @@ const RGBADelayShader = {
     }
 
     vec2 offsetUV(vec2 uv, int delay) {
-        float offset =  0.004 * float(delay);
+        float offset = 0.004 * float(delay);
         offset /= texture2D(tDiffuse, uv).a * 1.;
         offset = saturate(offset);
+
+        // Sample motion
+        vec3 current = texture2D(tDiffuse, uv).rgb;
+        vec3 previous = texture2D(motionFrame, uv).rgb;
+        float motion = length(current - previous); // [0..√3]
+        motion = saturate(motion * 2.0); // scale + clamp
 
         if (refractAmount > 0.0) {
             vec2 warp = vec2(
             sin(uv.y * 20.0 + time * 2.0),
             cos(uv.x * 20.0 + time * 1.5)
             );
-            return uv + normalize(warp) * offset * refractAmount * 100.0;
+            return uv + normalize(warp) * offset * refractAmount * 100.0 * motion;
         } else {
-            return uv + vec2(offset, 0.0);
+            return uv + vec2(offset * motion, 0.0);
         }
     }
 

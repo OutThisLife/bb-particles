@@ -6,15 +6,23 @@ import {
   AfterimagePass,
   EffectComposer,
   RenderPass,
-  ShaderPass
+  ShaderPass,
+  UnrealBloomPass
 } from 'three/examples/jsm/Addons.js'
 import RGBADelayShader from './rgba-delay'
 
-extend({ EffectComposer, RenderPass, ShaderPass, AfterimagePass })
+extend({
+  EffectComposer,
+  RenderPass,
+  ShaderPass,
+  AfterimagePass,
+  UnrealBloomPass
+})
 
 export default function Effects() {
   const { gl, scene, camera, size } = useThree()
 
+  const bloomPassRef = useRef<UnrealBloomPass | null>(null)
   const maxFrames = 10
   const frameBuffer = useRef<THREE.WebGLRenderTarget[]>([])
   const frameIndex = useRef(0)
@@ -51,6 +59,26 @@ export default function Effects() {
   })
 
   const {
+    bloomEnabled,
+    bloomStrength,
+    bloomRadius,
+    bloomThreshold,
+    bloomScale
+  } = useControls('Bloom', {
+    bloomEnabled: true,
+    bloomStrength: { value: 0.63, min: 0, max: 3, step: 0.01 },
+    bloomRadius: { value: 0, min: 0, max: 1, step: 0.01 },
+    bloomThreshold: { value: 0.88, min: 0, max: 1, step: 0.01 },
+    bloomScale: {
+      value: 0.5,
+      min: 0.1,
+      max: 1,
+      step: 0.05,
+      label: 'Resolution Scale'
+    }
+  })
+
+  const {
     dryWet,
     gain,
     refractAmount,
@@ -62,24 +90,19 @@ export default function Effects() {
   } = useControls('RGBA Delay', {
     enabled: true,
     delays: folder({
-      redDelay: { value: 1, min: 0, max: maxFrames - 1, step: 1 },
-      greenDelay: { value: 2, min: 0, max: maxFrames - 1, step: 1 },
-      blueDelay: { value: 3, min: 0, max: maxFrames - 1, step: 1 },
+      redDelay: { value: 8, min: 0, max: maxFrames - 1, step: 1 },
+      greenDelay: { value: 7, min: 0, max: maxFrames - 1, step: 1 },
+      blueDelay: { value: 9, min: 0, max: maxFrames - 1, step: 1 },
       alphaDelay: { value: 0, min: 0, max: maxFrames - 1, step: 1 }
     }),
-    accumulation: folder({
-      gain: { value: 1.01, min: 0, max: 2, step: 0.01, label: 'Gain' }
-    }),
-    mixing: folder({
-      dryWet: {
-        value: 0.69,
-        min: 0,
-        max: 1,
-        step: 0.01,
-        label: 'Dry/Wet Mix'
-      },
-      refractAmount: { value: 0, min: 0, max: 0.01, step: 0.0001 }
-    })
+    gain: { value: 2, min: 0, max: 2, step: 0.01 },
+    dryWet: {
+      value: 0.09,
+      min: 0,
+      max: 1,
+      step: 0.01
+    },
+    refractAmount: { value: 0.004, min: 0, max: 0.01, step: 0.0001 }
   })
 
   useEffect(() => {
@@ -104,9 +127,19 @@ export default function Effects() {
 
     fx.addPass(rgbaDelayPass)
 
+    // Bloom pass
+    bloomPassRef.current = new UnrealBloomPass(
+      new THREE.Vector2(size.width * bloomScale, size.height * bloomScale),
+      bloomStrength,
+      bloomRadius,
+      bloomThreshold
+    )
+    fx.addPass(bloomPassRef.current)
+
     return () => {
       frameBuffer.current.forEach(b => b.dispose())
       afterimageTarget.dispose()
+      bloomPassRef.current = null
     }
   }, [fx, scene, camera, size, afterimageTarget])
 
@@ -118,7 +151,24 @@ export default function Effects() {
   useFrame(({ clock }) => {
     const rgbaPass = fx.passes.find(p => p instanceof ShaderPass) as ShaderPass
 
-    if (enabled && rgbaPass) {
+    // Ensure RGBA delay pass enabled state follows control before uniform updates
+    if (rgbaPass) rgbaPass.enabled = enabled
+
+    // Update bloom parameters each frame
+    if (bloomPassRef.current) {
+      bloomPassRef.current.strength = bloomStrength
+      bloomPassRef.current.radius = bloomRadius
+      bloomPassRef.current.threshold = bloomThreshold
+      bloomPassRef.current.enabled = bloomEnabled
+
+      // Update internal render target dimensions according to scale
+      const w = size.width * bloomScale
+      const h = size.height * bloomScale
+      bloomPassRef.current.setSize(w, h)
+    }
+
+    // RGBA Delay processing (only when pass enabled)
+    if (rgbaPass?.enabled) {
       rgbaPass.uniforms.time.value = clock.elapsedTime
       rgbaPass.uniforms.dryWet.value = dryWet
       rgbaPass.uniforms.gain.value = gain
@@ -127,38 +177,41 @@ export default function Effects() {
       rgbaPass.uniforms.greenDelay.value = greenDelay
       rgbaPass.uniforms.blueDelay.value = blueDelay
       rgbaPass.uniforms.alphaDelay.value = alphaDelay
-
-      // Render scene to fx.readBuffer
-      gl.setRenderTarget(fx.readBuffer)
-      gl.clear()
-      gl.render(scene, camera)
-
-      // Afterimage: fx.readBuffer -> afterimageTarget
-      afterimagePass?.render(
-        gl,
-        afterimageTarget,
-        fx.readBuffer,
-        clock.elapsedTime,
-        false
-      )
-
-      // Copy afterimageTarget to current delay frame
-      gl.setRenderTarget(frameBuffer.current[frameIndex.current])
-      copyMaterial.map = afterimageTarget.texture
-      gl.render(copyScene, copyCamera)
-
-      // Update delay frame pointers
-      frameIndex.current = (frameIndex.current + 1) % maxFrames
-      for (let i = 0; i < maxFrames; i++) {
-        const bufferIdx = (frameIndex.current - i - 1 + maxFrames) % maxFrames
-        rgbaPass.uniforms[`frame${i}`].value =
-          frameBuffer.current[bufferIdx].texture
-      }
-
-      // Final render to screen
-      gl.setRenderTarget(null)
-      fx.render()
     }
+
+    // Render scene to fx.readBuffer
+    gl.setRenderTarget(fx.readBuffer)
+    gl.clear()
+    gl.render(scene, camera)
+
+    // Afterimage: fx.readBuffer -> afterimageTarget
+    afterimagePass?.render(
+      gl,
+      afterimageTarget,
+      fx.readBuffer,
+      clock.elapsedTime,
+      false
+    )
+
+    // Copy afterimageTarget to current delay frame
+    gl.setRenderTarget(frameBuffer.current[frameIndex.current])
+    copyMaterial.map = afterimageTarget.texture
+    gl.render(copyScene, copyCamera)
+
+    // Update delay frame pointers
+    frameIndex.current = (frameIndex.current + 1) % maxFrames
+    for (let i = 0; i < maxFrames; i++) {
+      const bufferIdx = (frameIndex.current - i - 1 + maxFrames) % maxFrames
+      rgbaPass.uniforms[`frame${i}`].value =
+        frameBuffer.current[bufferIdx].texture
+    }
+
+    rgbaPass.uniforms.motionFrame.value =
+      frameBuffer.current[frameIndex.current].texture
+
+    // Final render to screen
+    gl.setRenderTarget(null)
+    fx.render()
   }, 1)
 
   return null

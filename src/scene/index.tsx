@@ -159,12 +159,12 @@ function Inner() {
                 attach="attributes-particleIndex"
                 count={PARTICLE_COUNT}
                 array={Float32Array.from(
-                  Array.from(
-                    { length: PARTICLE_COUNT },
-                    (_, i) => i / PARTICLE_COUNT
+                  Array.from({ length: PARTICLE_COUNT * 2 }, (_, idx) =>
+                    // Even index: normalized vertex index, Odd index: random seed
+                    idx % 2 === 0 ? idx / 2 / PARTICLE_COUNT : Math.random()
                   )
                 )}
-                itemSize={1}
+                itemSize={2}
               />
             </bufferGeometry>
 
