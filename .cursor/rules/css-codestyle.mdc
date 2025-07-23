@@ -152,7 +152,7 @@ interface InfiniteSliderProps extends HTMLAttributes<HTMLDivElement> {
 
       &:last-of-type {
         @apply 
-        z-[5] absolute top-0 left-0 w-auto pointer-events-none 
+        z-5 absolute top-0 left-0 w-auto pointer-events-none 
         max-w-none h-[calc(var(--h)*1px)] max-h-none 
         shadow-2xl mx-0;
       }
@@ -169,7 +169,7 @@ interface InfiniteSliderProps extends HTMLAttributes<HTMLDivElement> {
     }
 
     &:global(.active) {
-      @apply z-[1] pr-[var(--offset)];
+      @apply z-1 pr-[var(--offset)];
 
       img:first-of-type {
         @apply opacity-0;
@@ -186,3 +186,24 @@ interface InfiniteSliderProps extends HTMLAttributes<HTMLDivElement> {
 I want to use all of the latest CSS specs and as shorthand, magical as possible. Using CSS variables and boolean operators as it seems fit.
 
 Study this: https://css-tricks.com/logical-operations-with-css-variables/ 
+
+Always use relative scales, never use pixels. 
+Always use tailwindcss variables. Never add comments. 
+Never use space-N, always prefer flex flex-col and gaps. 
+Use grids where it makes sense. 
+Never use margins, prefer padding and gaps.
+
+Use `cn` to organize classes based on their type, see below for example:
+
+```tsx
+ <button
+    className={cn(
+    'absolute right-12 top-1/2 -translate-y-1/2 px-2 py-1',
+    'font-medium text-purple text-base leading-5',
+    'bg-purple/10 rounded-lg',
+    'hover:bg-purple/20 transition-colors',
+    variant === 'locked' && 'right-4'
+    )}>
+    Change
+</button>
+```

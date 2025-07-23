@@ -139,5 +139,50 @@ type UseSmoothControlsOptions = Parameters<typeof useControls>[2] & {
 
 Observe the way I write code and follow my patterns. This applies across multiple languages. I like shorthand, inline, and using the language to its most extreme extent. I 'abuse' programming languages.
 
-Also note the defensive programming style. Things are optional, with optional chaining to never assume a value. Always set defaults or use defensive programming. 
+Also note the defensive programming style. Always set defaults, use optional chaining, and/or use defensive programming.
 
+Never use `type N = {` when declaring type schemas that should be `interface`. Example below is correct:
+
+```ts
+interface CallParams {
+  agentId: string
+  aiBeginMessage?: string
+  aiEndInterviewMessage?: string
+  aiName?: string
+  aiRole?: string
+  callType: 'phone'
+  firstName?: string
+  fromNumber: string
+  lastName?: string
+  maxInterviewTime?: number
+  toNumber: string
+}
+```
+
+Put types and interfaces at the bottom of the file.
+
+Notice that optionals are used and that properties are sorted alphabetically. Do not use redundant typing and leverage typescript's inference as much as possible.
+
+Use non-null assertion (`!`) when logical, optional chaining (`?.x?.[0]?.x`), and null-coalescing operators (`??`) everywhere you see fit.
+
+Do not make variables you use once unless the complexity requires it - and it rarely does. You're intelligent.
+
+Always prefer `export default function` for react components. Prefer spreading props like so: `{... { a, b c }}` vs `a={a}` in the components definition (as in, inheriting props) only when there already exists a variable with the same name. We should never see `visible={visible}` but `visible={false}` is ok.
+
+Never let components in TSX touch when they wrap more than one line, for ex:
+
+```tsx
+<Typography>This is a paragraph</Typography>
+<Typography>This is a paragraph</Typography>
+
+<Button
+  variant="cute"
+  onClick={noop}
+  disabled>
+  This is a button
+</Button>
+
+<Modal />
+```
+
+This ensures proper, logical spacing.

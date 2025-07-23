@@ -1,0 +1,16 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+This is a nextjs project where there are some basic guidelines:
+ 
+ - Use `'browser' in process` to test for client, not typeof window
+ - Add routes logically to `app/` and create skeletons using `loading.ts`
+ - Be intelligent about nesting `layout.tsx`
+ - Hooks go to `src/hooks`
+ - Components go to `src/components` with UI tokens (atoms) going to `src/components/ui`
+ - Providers go to `src/providers` and should never export their own hook (to keep in hooks dir)
+ - Utils go to `src/utils`
+
+ Never run 'next dev' or 'next build' commands on behalf of the user.
