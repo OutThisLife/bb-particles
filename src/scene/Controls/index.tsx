@@ -43,11 +43,5 @@ export default function Controls() {
     return () => ac?.abort()
   }, [size, camera, controls])
 
-  return (
-    <OrbitControls
-      makeDefault
-      enableDamping
-      {...{ enabled, enableRotate: false }}
-    />
-  )
+  return <OrbitControls makeDefault enableDamping {...{ enabled }} />
 }

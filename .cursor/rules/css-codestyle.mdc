@@ -1,0 +1,209 @@
+---
+description: 
+globs: *.css,*.scss,*.tsx,*.jsx
+alwaysApply: false
+---
+
+# Brooklyn's Code Style (CSS)
+
+I love CSS and abuse CSS to its maximum potential. See below for an example of my code style:
+
+```ts
+'use client'
+
+import clsx from 'clsx'
+import type { EngineType } from 'embla-carousel'
+import useEmblaCarousel from 'embla-carousel-react'
+import Image from 'next/image'
+import type { HTMLAttributes } from 'react'
+import { useEffect, useState } from 'react'
+
+import styles from './styles.module.scss'
+
+export function InfiniteSlider({
+  className,
+  images = [],
+  ...props
+}: InfiniteSliderProps) {
+  let tm: NodeJS.Timeout
+  const [idx, setIdx] = useState(0)
+
+  const [ref, api] = useEmblaCarousel({
+    dragFree: true,
+    loop: true,
+    startIndex: Math.round(images.length / 2),
+    watchFocus: true
+  })
+
+  useEffect(() => {
+    setIdx(api?.selectedScrollSnap() ?? 0)
+    api?.on('select', e => setIdx(e.selectedScrollSnap()))
+  }, [api])
+
+  useEffect(() => {
+    if (!api) {
+      return
+    }
+
+    clearTimeout(tm)
+    tm = setTimeout(() => {
+      const old = api!.internalEngine()
+
+      api!.reInit()
+      const next = api!.internalEngine()
+
+      const modules: (keyof EngineType)[] = [
+        'scrollBody',
+        'location',
+        'offsetLocation',
+        'previousLocation',
+        'target'
+      ]
+
+      modules.forEach(m => Object.assign(next[m], old[m]))
+      next.translate.to(old.location.get())
+
+      const { index } = next.scrollTarget.byDistance(0, false)
+      next.index.set(index)
+      next.animation.start()
+    }, 401)
+
+    return () => clearTimeout(tm)
+  }, [api, idx])
+
+  return (
+    <section className={clsx('embla', styles.infiniteSlider)} {...props}>
+      <div className={clsx('embla__viewport', className)} {...{ ref }}>
+        <div className="embla__container">
+          {[...images, ...images, ...images].map((src, n) => (
+            <figure
+              className={clsx('embla__slide', idx === n && 'active')}
+              key={n}
+              onClick={() => api?.scrollTo(n)}>
+              <Image
+                alt=""
+                height={400}
+                loading="eager"
+                onLoad={e => {
+                  const $img = e.currentTarget
+                  const el = $img.parentElement
+
+                  el?.style.setProperty('--img-w', `${$img.naturalWidth}`)
+                  el?.style.setProperty('--img-h', `${$img.naturalHeight}`)
+                }}
+                width={400}
+                {...{ src }}
+              />
+
+              <Image
+                alt=""
+                height={400}
+                loading="eager"
+                width={400}
+                {...{ src }}
+              />
+            </figure>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+interface InfiniteSliderProps extends HTMLAttributes<HTMLDivElement> {
+  images: string[]
+}
+```
+
+```scss
+.infiniteSlider {
+  --h: 150;
+
+  @screen md {
+    --h: 350;
+  }
+
+  @apply cursor-grab select-none min-h-[calc(var(--h)*1px)];
+
+  :global(.embla__viewport),
+  :global(.embla__container) {
+    @apply min-h-[inherit];
+  }
+
+  figure {
+    --small-w: calc(var(--img-w) * ((var(--h) * .55) / var(--img-h)));
+    --large-w: calc(var(--img-w) * (var(--h) / var(--img-h)));
+    --offset: calc((1px * (var(--large-w) - var(--small-w))) - 1rem);
+      
+    @apply 
+    relative w-fit px-4
+    flex place-items-start place-content-start;
+
+    flex: auto 0 0;
+    transition: padding .4s, left .4s;
+
+    > img {
+      @apply 
+      w-auto h-full max-h-[calc(var(--h)*.55*1px)] 
+      object-cover object-top 
+      transition-all duration-[.4s];
+
+      clip-path: inset(0 0 0 0);
+
+      &:last-of-type {
+        @apply 
+        z-5 absolute top-0 left-0 w-auto pointer-events-none 
+        max-w-none h-[calc(var(--h)*1px)] max-h-none 
+        shadow-2xl mx-0;
+      }
+    }
+
+    &:not(:global(.active)) > img {
+      @apply grayscale opacity-30 hover:opacity-50;
+
+      &:last-of-type {
+        @apply opacity-0;
+
+        clip-path: inset(0 25% 50% 0);
+      }
+    }
+
+    &:global(.active) {
+      @apply z-1 pr-[var(--offset)];
+
+      img:first-of-type {
+        @apply opacity-0;
+      }
+    }
+  }
+
+  &:has(:global(.active):nth-last-child(-n+3)) figure[style*="translate3d"]:not([style*="translate3d(0px"]) {
+    @apply left-8;
+  }
+}
+```
+
+I want to use all of the latest CSS specs and as shorthand, magical as possible. Using CSS variables and boolean operators as it seems fit.
+
+Study this: https://css-tricks.com/logical-operations-with-css-variables/ 
+
+Always use relative scales, never use pixels. 
+Always use tailwindcss variables. Never add comments. 
+Never use space-N, always prefer flex flex-col and gaps. 
+Use grids where it makes sense. 
+Never use margins, prefer padding and gaps.
+
+Use `cn` to organize classes based on their type, see below for example:
+
+```tsx
+ <button
+    className={cn(
+    'absolute right-12 top-1/2 -translate-y-1/2 px-2 py-1',
+    'font-medium text-purple text-base leading-5',
+    'bg-purple/10 rounded-lg',
+    'hover:bg-purple/20 transition-colors',
+    variant === 'locked' && 'right-4'
+    )}>
+    Change
+</button>
+```

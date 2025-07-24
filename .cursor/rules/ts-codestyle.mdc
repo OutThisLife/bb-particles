@@ -1,0 +1,188 @@
+---
+description: 
+globs: *.ts,*.tsx,*.py,*.jsx
+alwaysApply: false
+---
+
+# Brooklyn's Code Style 
+
+Below is a snippet of a hook that I handwrit using typescript.
+
+```ts
+import gsap from 'gsap'
+import { buttonGroup, useControls } from 'leva'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
+export function useSmoothControls<T extends Record<string, any>>(
+  label: string,
+  initialArgs: T,
+  options?: UseSmoothControlsOptions,
+  dependencies?: Parameters<typeof useControls>[3]
+) {
+  type R = { [K in keyof T]: T[K] extends { value: infer V } ? V : never }
+
+  const entries = useMemo(
+    () => Object.entries(initialArgs ?? {}),
+    [initialArgs]
+  )
+
+  const hydrate = useCallback(
+    () =>
+      Object.fromEntries(
+        entries.map(([k, v]) => {
+          if (v?.schema) {
+            return Object.entries(v.schema).map(([k0, v0]: [string, any]) => [
+              k0,
+              'value' in v0 ? v0.value : v0
+            ])
+          }
+
+          return [k, 'value' in v ? v.value : v]
+        })
+      ) as R,
+    [entries]
+  )
+
+  const [args, update] = useState<R>(hydrate)
+  const values = entries.filter(([, v]) => !/button|folder/i.test(v?.type))
+
+  useEffect(() => {
+    const curKeys = Object.keys(args)
+    const nextKeys = Object.keys(initialArgs)
+
+    if (curKeys.length !== nextKeys.length) {
+      update(hydrate)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialArgs, args])
+
+  const [, set] = useControls(
+    label ?? 'Group',
+    () => ({
+      ...Object.fromEntries(
+        entries.map(([k, v]) => {
+          const onChange = (e: any, k0?: string) => {
+            const key = k0?.split('.')?.pop() ?? k
+
+            if (typeof e === 'number' && args[key] !== e) {
+              gsap.to(args, {
+                [key]: e,
+                duration: options?.duration ?? 0.35,
+                ease: 'circ.out',
+                onUpdate: () => update(st => ({ ...st, [key]: args[key] }))
+              })
+            } else {
+              update(st => ({ ...st, [key]: e }))
+            }
+          }
+
+          if (v?.schema) {
+            return [
+              k,
+              {
+                ...v,
+                schema: Object.fromEntries(
+                  Object.entries(v.schema).map(([k, v]) => [
+                    k,
+                    { ...v!, onChange }
+                  ])
+                )
+              }
+            ]
+          }
+
+          return [
+            k,
+            {
+              ...v,
+              onChange
+            }
+          ]
+        })
+      ),
+      ' ': buttonGroup({
+        randomize: () => {
+          set(
+            Object.fromEntries(
+              values.map(([k, v]) => [
+                k,
+                typeof v === 'object' && ('min' in v || 'max' in v)
+                  ? gsap.utils.random(v.min ?? 0, v.max ?? 1, v.step ?? 0.01)
+                  : gsap.utils.random(0, 1)
+              ])
+            )
+          )
+
+          options?.onRandomize?.()
+        },
+        reset: () => {
+          set(Object.fromEntries(values.map(([k, { value: v }]) => [k, v])))
+
+          options?.onReset?.()
+        },
+        flatten: () => set(Object.fromEntries(values.map(([k]) => [k, 0])))
+      })
+    }),
+    options,
+    dependencies ?? []
+  )
+
+  return args
+}
+
+type UseSmoothControlsOptions = Parameters<typeof useControls>[2] & {
+  duration?: number
+  onReset?: () => void
+  onRandomize?: () => void
+}
+```
+
+Observe the way I write code and follow my patterns. This applies across multiple languages. I like shorthand, inline, and using the language to its most extreme extent. I 'abuse' programming languages.
+
+Also note the defensive programming style. Always set defaults, use optional chaining, and/or use defensive programming.
+
+Never use `type N = {` when declaring type schemas that should be `interface`. Example below is correct:
+
+```ts
+interface CallParams {
+  agentId: string
+  aiBeginMessage?: string
+  aiEndInterviewMessage?: string
+  aiName?: string
+  aiRole?: string
+  callType: 'phone'
+  firstName?: string
+  fromNumber: string
+  lastName?: string
+  maxInterviewTime?: number
+  toNumber: string
+}
+```
+
+Put types and interfaces at the bottom of the file.
+
+Notice that optionals are used and that properties are sorted alphabetically. Do not use redundant typing and leverage typescript's inference as much as possible.
+
+Use non-null assertion (`!`) when logical, optional chaining (`?.x?.[0]?.x`), and null-coalescing operators (`??`) everywhere you see fit.
+
+Do not make variables you use once unless the complexity requires it - and it rarely does. You're intelligent.
+
+Always prefer `export default function` for react components. Prefer spreading props like so: `{... { a, b c }}` vs `a={a}` in the components definition (as in, inheriting props) or when props are extensive and we have a lot of same-named variables.
+
+Never let components in TSX touch when they wrap more than one line, for ex:
+
+```tsx
+<Typography>This is a paragraph</Typography>
+<Typography>This is a paragraph</Typography>
+
+<Button
+  variant="cute"
+  onClick={noop}
+  disabled>
+  This is a button
+</Button>
+
+<Modal />
+```
+
+This ensures proper, logical spacing.

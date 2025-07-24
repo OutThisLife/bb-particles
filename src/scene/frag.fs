@@ -18,17 +18,19 @@ void main() {
   float alpha = 1. - smoothstep(.1, .5, length(st - .5));
   alpha = vAlpha;
 
-  vec4 col = vec4(vec3(1), alpha);
+  vec4 col = vec4(vec3(1, .98, .7), alpha);
 
-  // col.rgb *= 1. - length(vPosition - .5) * 3.;
+  col.rgb *= 1. - length(vPosition - .5) * 3.;
 
   if (alpha < 0.01) {
-    // discard;
+    discard;
   }
 
 #ifndef DEPTH_PASS
   col.rgb *= texture(tDiffuse, gl_PointCoord / uResolution).r;
 #endif
+
+  col.rgb = vec3(1, 0, 0);
 
   fragColor = saturate(col);
 }

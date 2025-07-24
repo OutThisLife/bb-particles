@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Do not over engineer anything. Do not produce verbose logs. If you see these, remove them and replace with logical, concise, implementations where the result is on par. Your general goal should be to reduce LoC, not add.
