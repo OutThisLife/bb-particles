@@ -1,13 +1,13 @@
 module.exports = {
-  arrowParens: "avoid",
+  arrowParens: 'avoid',
   bracketSpacing: true,
-  endOfLine: "auto",
+  endOfLine: 'auto',
   jsxBracketSameLine: true,
-  parser: "typescript",
+  parser: 'typescript',
   printWidth: 80,
   semi: false,
   singleQuote: true,
   tabWidth: 2,
-  trailingComma: "none",
-  useTabs: false,
-};
+  trailingComma: 'none',
+  useTabs: false
+}

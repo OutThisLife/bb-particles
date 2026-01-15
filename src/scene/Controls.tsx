@@ -6,8 +6,8 @@ import { useEffect, useState } from 'react'
 import * as THREE from 'three'
 
 export default function Controls() {
-  const { camera, controls, size, scene } = useThree()
-  const [enabled, set] = useState<boolean>(false)
+  const { camera, controls, size } = useThree()
+  const [enabled, set] = useState(false)
 
   useEffect(() => {
     const ac = new AbortController()

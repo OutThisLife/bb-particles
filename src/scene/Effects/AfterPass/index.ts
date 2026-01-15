@@ -4,24 +4,23 @@ import fragmentShader from './frag.fs'
 import vertexShader from './vert.vs'
 
 const AfterImageShader = {
+  fragmentShader,
   uniforms: {
-    tOld: { value: new THREE.Texture() },
+    damp: { value: 0.96 },
     tNew: { value: new THREE.Texture() },
-    damp: { value: 0.96 }
+    tOld: { value: new THREE.Texture() }
   },
-
-  vertexShader,
-  fragmentShader
+  vertexShader
 }
 
 export class CustomAfterPass extends Pass {
-  private uniforms: typeof AfterImageShader.uniforms
-  private textureComp: THREE.WebGLRenderTarget
-  private textureOld: THREE.WebGLRenderTarget
   private compFsMaterial: THREE.ShaderMaterial
   private compFsQuad: FullScreenQuad
   private copyFsMaterial: THREE.ShaderMaterial
   private copyFsQuad: FullScreenQuad
+  private textureComp: THREE.WebGLRenderTarget
+  private textureOld: THREE.WebGLRenderTarget
+  private uniforms: typeof AfterImageShader.uniforms
 
   constructor(damp = 0.96) {
     super()

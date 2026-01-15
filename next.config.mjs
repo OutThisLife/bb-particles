@@ -2,12 +2,10 @@
 export default {
   transpilePackages: ['three'],
   typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
-  webpack(config) {
-    config.module.rules.push({
-      test: /\.(vs|fs)$/,
-      use: ['raw-loader']
-    })
-    return config
+  turbopack: {
+    rules: {
+      '*.vs': { loaders: ['raw-loader'], as: '*.js' },
+      '*.fs': { loaders: ['raw-loader'], as: '*.js' }
+    }
   }
 }
