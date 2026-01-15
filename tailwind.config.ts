@@ -1,10 +1,11 @@
+/* eslint-disable import/no-default-export */
 import type { Config } from 'tailwindcss'
 
 const gridSteps = Object.fromEntries(
   Array.from({ length: 10 }, (_, i) => [i, `${i} / ${i * -1}`])
 )
 
-const config: Config = {
+export default {
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -24,5 +25,4 @@ const config: Config = {
     gridRow: gridSteps
   },
   plugins: []
-}
-export default config
+} satisfies Config

@@ -1,10 +1,10 @@
-import { Billboard, Edges } from '@react-three/drei'
-import { MeshProps, useFrame } from '@react-three/fiber'
+import { Billboard, type BillboardProps, Edges } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import * as THREE from 'three'
 
-export default function Cursor(props: MeshProps) {
-  const ref = useRef<THREE.Mesh>(null!)
+export function Cursor(props: BillboardProps) {
+  const ref = useRef<THREE.Group>(null!)
 
   useFrame(({ camera, pointer, raycaster }) => {
     if (camera instanceof THREE.PerspectiveCamera) {
@@ -25,7 +25,7 @@ export default function Cursor(props: MeshProps) {
         raycaster.ray.intersectPlane(
           new THREE.Plane(new THREE.Vector3(0, 0, 1), 0),
           new THREE.Vector3()
-        ) || new THREE.Vector3()
+        ) ?? new THREE.Vector3()
       )
     }
   })
@@ -34,8 +34,8 @@ export default function Cursor(props: MeshProps) {
     <Billboard {...{ ref, ...props }}>
       <mesh rotation={[-Math.PI / 4, Math.PI / 4, 0]}>
         <boxGeometry args={[0.05, 0.05, 0.05]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-        <Edges linewidth={1} threshold={15} opacity={0.05} transparent />
+        <meshBasicMaterial depthWrite={false} opacity={0} transparent />
+        <Edges linewidth={1} opacity={0.05} threshold={15} transparent />
       </mesh>
     </Billboard>
   )

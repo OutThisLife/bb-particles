@@ -1,34 +1,55 @@
 'use client'
 
-import { Stats } from '@react-three/drei'
+import { Float, Shadow, Stats } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import gsap from 'gsap'
 import { useControls } from 'leva'
 import { lazy, Suspense, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
+
 import fragmentShader from './frag.fs'
 import vertexShader from './vert.vs'
 
-const Effects = lazy(() => import('./Effects'))
-const Controls = lazy(() => import('./Controls'))
+const Effects = lazy(() =>
+  import('./Effects').then(m => ({ default: m.Effects }))
+)
+const Controls = lazy(() =>
+  import('./Controls').then(m => ({ default: m.Controls }))
+)
 
 export const PARTICLE_COUNT = 4096
 
 const len = 2
 
-function sampleEdges(geo: THREE.BufferGeometry, count: number) {
+function sampleEdges(
+  geo: THREE.BufferGeometry,
+  count: number,
+  targetRadius = 0.5
+) {
   const edges = new THREE.EdgesGeometry(geo, 15)
   const pos = edges.attributes.position
   const segments: [THREE.Vector3, THREE.Vector3][] = []
+  const center = new THREE.Vector3()
+
+  geo.computeBoundingBox()
+  geo.boundingBox?.getCenter(center)
+  geo.computeBoundingSphere()
+
+  const radius = geo.boundingSphere?.radius ?? 1
+  const scale = targetRadius / Math.max(radius, 1e-6)
 
   for (let i = 0; i < pos.count; i += 2) {
     segments.push([
-      new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i)),
-      new THREE.Vector3(pos.getX(i + 1), pos.getY(i + 1), pos.getZ(i + 1))
+      new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i)).sub(center),
+      new THREE.Vector3(pos.getX(i + 1), pos.getY(i + 1), pos.getZ(i + 1)).sub(
+        center
+      )
     ])
   }
 
-  if (!segments.length) return new Float32Array(count * 3)
+  if (!segments.length) {
+    return new Float32Array(count * 3)
+  }
 
   const lengths = segments.map(([a, b]) => a.distanceTo(b))
   const total = lengths.reduce((a, b) => a + b, 0)
@@ -50,15 +71,18 @@ function sampleEdges(geo: THREE.BufferGeometry, count: number) {
 
     const [a, b] = segments[segIdx]
     const localT = lengths[segIdx] > 0 ? (t - acc) / lengths[segIdx] : 0
-    const p = a.clone().lerp(b, localT)
+    const p = a.clone().lerp(b, localT).multiplyScalar(scale)
 
-    result[i * 3] = p.x / 2
-    result[i * 3 + 1] = p.y / 2
-    result[i * 3 + 2] = p.z / 2
+    result[i * 3] = p.x
+    result[i * 3 + 1] = p.y
+    result[i * 3 + 2] = p.z
   }
 
   return result
 }
+
+const LIGHT1_POS = new THREE.Vector3(10, 10, 10)
+const LIGHT2_POS = new THREE.Vector3(-10, 10, -10)
 
 function Inner() {
   const { gl } = useThree()
@@ -76,12 +100,12 @@ function Inner() {
     rotationFactor,
     scaleFactor
   } = useControls({
-    alphaFactor: { max: 1, min: 0, step: 0.01, value: 0.1 },
+    alphaFactor: { max: 1, min: 0, step: 0.01, value: 0.12 },
     autoplay: { value: true },
     manualProgress: { max: 1, min: 0, step: 1.0 / len, value: 0 },
     mirrorX: { value: false },
     mirrorY: { value: false },
-    pointSize: { max: 10, min: 1, step: 0.5, value: 2 },
+    pointSize: { max: 10, min: 1, step: 0.5, value: 3 },
     repetitions: { max: 100, min: 1, step: 1, value: 20 },
     rotationFactor: { max: 360, min: -360, step: 1, value: 100 },
     scaleFactor: { max: 1, min: 0, step: 0.01, value: 0.06 }
@@ -92,6 +116,13 @@ function Inner() {
       uAlpha: new THREE.Uniform(alphaFactor),
       uChannel0: new THREE.Uniform(new THREE.Texture()),
       uDpr: new THREE.Uniform(gl.getPixelRatio()),
+      uLight1Pos: new THREE.Uniform(LIGHT1_POS),
+      uLight1Color: new THREE.Uniform(new THREE.Color(1, 1, 1)),
+      uLight1Intensity: new THREE.Uniform(1.0),
+      uLight2Pos: new THREE.Uniform(LIGHT2_POS),
+      uLight2Color: new THREE.Uniform(new THREE.Color(1, 1, 1)),
+      uLight2Intensity: new THREE.Uniform(0.5),
+      uAmbient: new THREE.Uniform(0.1),
       uPointSize: new THREE.Uniform(pointSize),
       uProgress: new THREE.Uniform(0),
       uStep: new THREE.Uniform(1.0 / len),
@@ -153,43 +184,44 @@ function Inner() {
   useEffect(() => {
     const geo = geoRef.current
 
-    if (!geo) return
+    if (!geo) {
+      return
+    }
 
-    geo.setAttribute(
-      'position',
-      new THREE.BufferAttribute(new Float32Array(PARTICLE_COUNT * 3), 3)
-    )
+    const setOrUpdate = (
+      name: string,
+      data: Float32Array,
+      size: number,
+      instanced = false
+    ) => {
+      const existing = geo.getAttribute(name)
 
-    geo.setAttribute(
-      'particleIndex',
-      new THREE.BufferAttribute(particleAttribs.particleIndex, 1)
-    )
+      if (existing?.array.length === data.length) {
+        ;(existing.array as Float32Array).set(data)
+        existing.needsUpdate = true
+      } else {
+        const attr = instanced
+          ? new THREE.InstancedBufferAttribute(data, size)
+          : new THREE.BufferAttribute(data, size)
 
-    geo.setAttribute(
-      'instanceOffset',
-      new THREE.InstancedBufferAttribute(instanceAttribs.instanceOffset, 3)
-    )
+        geo.setAttribute(name, attr)
+      }
+    }
 
-    geo.setAttribute(
-      'instanceScale',
-      new THREE.InstancedBufferAttribute(instanceAttribs.instanceScale, 1)
-    )
-
-    geo.setAttribute(
-      'instanceRotation',
-      new THREE.InstancedBufferAttribute(instanceAttribs.instanceRotation, 1)
-    )
-
-    geo.setAttribute(
-      'instanceLayer',
-      new THREE.InstancedBufferAttribute(instanceAttribs.instanceLayer, 1)
-    )
+    setOrUpdate('position', new Float32Array(PARTICLE_COUNT * 3), 3)
+    setOrUpdate('particleIndex', particleAttribs.particleIndex, 1)
+    setOrUpdate('instanceOffset', instanceAttribs.instanceOffset, 3, true)
+    setOrUpdate('instanceScale', instanceAttribs.instanceScale, 1, true)
+    setOrUpdate('instanceRotation', instanceAttribs.instanceRotation, 1, true)
+    setOrUpdate('instanceLayer', instanceAttribs.instanceLayer, 1, true)
   }, [instanceAttribs, particleAttribs])
 
   useEffect(() => {
     const geo = geoRef.current
 
-    if (geo) geo.instanceCount = instanceCount
+    if (geo) {
+      geo.instanceCount = instanceCount
+    }
   }, [instanceCount])
 
   useEffect(() => {
@@ -230,7 +262,9 @@ function Inner() {
   }, [uniforms])
 
   useEffect(() => {
-    if (!autoplay) return
+    if (!autoplay) {
+      return
+    }
 
     const tl = gsap.timeline({ repeat: -1, yoyo: true })
     const step = uniforms.uStep.value
@@ -244,7 +278,9 @@ function Inner() {
         ease: 'power2.inOut'
       })
 
-      if (i < len - 1) tl.to({}, { duration: 3 })
+      if (i < len - 1) {
+        tl.to({}, { duration: 3 })
+      }
     }
 
     return () => void tl.kill()
@@ -262,38 +298,84 @@ function Inner() {
   })
 
   return (
-    <points ref={pointsRef}>
-      <instancedBufferGeometry ref={geoRef} instanceCount={instanceCount} />
+    <group scale={5.5}>
+      <Float floatIntensity={0.15} rotationIntensity={0.08}>
+        <points ref={pointsRef}>
+          <instancedBufferGeometry instanceCount={instanceCount} ref={geoRef} />
 
-      <shaderMaterial
-        key={`${fragmentShader + vertexShader}`}
-        glslVersion={THREE.GLSL3}
-        transparent
-        depthTest={false}
-        blending={THREE.AdditiveBlending}
-        {...{ vertexShader, fragmentShader, uniforms }}
+          <shaderMaterial
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            glslVersion={THREE.GLSL3}
+            key={`${fragmentShader + vertexShader}`}
+            transparent
+            {...{ vertexShader, fragmentShader, uniforms }}
+          />
+        </points>
+      </Float>
+
+      <Shadow
+        color="#fff"
+        opacity={0.05}
+        position={[0, -0.35, 0.01]}
+        scale={0.8}
       />
-    </points>
+    </group>
   )
 }
 
-export default function Scene() {
+export function Scene() {
   return (
     <Canvas
+      camera={{ position: [0, 0, 10], fov: 30 }}
       gl={{
         alpha: true,
         antialias: false,
-        depth: false,
+        depth: true,
         powerPreference: 'high-performance',
         stencil: false
       }}
-      orthographic
-      style={{ height: '100dvh', width: '100dvw' }}>
+      shadows
+      style={{ height: '100dvh', width: '100dvw' }}
+    >
+      <color args={['#000']} attach="background" />
+      <fog args={['#000', 5, 30]} attach="fog" />
+
+      <ambientLight intensity={0.1} />
+
+      <spotLight
+        angle={0.15}
+        castShadow
+        intensity={1}
+        penumbra={1}
+        position={[10, 10, 10]}
+      />
+
+      <spotLight
+        angle={0.15}
+        castShadow
+        intensity={0.5}
+        penumbra={1}
+        position={[-10, 10, -10]}
+      />
+
       <Suspense>
         <Inner />
         <Controls />
         <Effects />
       </Suspense>
+
+      <mesh position={[0, -2, 0]} receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[100, 100]} />
+
+        <meshStandardMaterial
+          color="#fff"
+          emissive="#fff"
+          emissiveIntensity={0.02}
+          metalness={0.9}
+          roughness={0.5}
+        />
+      </mesh>
 
       <Stats />
     </Canvas>

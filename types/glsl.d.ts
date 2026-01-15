@@ -1,3 +1,4 @@
+/* eslint-disable import/no-default-export */
 declare module '*.vs' {
   const value: string
   export default value

@@ -1,5 +1,6 @@
-import { PARTICLE_COUNT } from '@/scene'
 import * as THREE from 'three'
+
+import { PARTICLE_COUNT } from '@/scene'
 
 export const rand = (min = 0, max = 1) => Math.random() * (max - min) + min
 

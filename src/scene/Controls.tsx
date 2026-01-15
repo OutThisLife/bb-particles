@@ -5,7 +5,7 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useState } from 'react'
 import * as THREE from 'three'
 
-export default function Controls() {
+export function Controls() {
   const { camera, controls, size } = useThree()
   const [enabled, set] = useState(false)
 
@@ -45,8 +45,10 @@ export default function Controls() {
 
   return (
     <OrbitControls
-      makeDefault
+      autoRotate
+      autoRotateSpeed={0.5}
       enableDamping
+      makeDefault
       {...{ enablePan: enabled, enableRotate: enabled }}
     />
   )
