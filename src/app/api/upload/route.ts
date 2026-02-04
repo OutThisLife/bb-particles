@@ -1,6 +1,8 @@
 import { writeFile } from 'fs/promises'
-import { NextRequest, NextResponse } from 'next/server'
 import path from 'path'
+
+import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,6 +21,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ url: `/tmp/${file.name}` })
   } catch (error) {
     console.error('Error uploading file:', error)
+
     return NextResponse.json({ error: 'Error uploading file' }, { status: 500 })
   }
 }

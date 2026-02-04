@@ -5,7 +5,7 @@ import { useThree } from '@react-three/fiber'
 import { useEffect, useState } from 'react'
 import * as THREE from 'three'
 
-export default function Controls() {
+export const Controls = () => {
   const { camera, controls, size } = useThree()
   const [enabled, set] = useState<boolean>(false)
 
@@ -43,5 +43,5 @@ export default function Controls() {
     return () => ac?.abort()
   }, [size, camera, controls])
 
-  return <OrbitControls makeDefault enableDamping {...{ enabled }} />
+  return <OrbitControls enableDamping makeDefault {...{ enabled }} />
 }

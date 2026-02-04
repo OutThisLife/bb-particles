@@ -37,21 +37,28 @@ export function useSmoothControls<T extends Record<string, any>>(
   const [args, update] = useState<R>(hydrate)
 
   useEffect(() => {
-    if (Object.keys(args).length !== Object.keys(schema).length) update(hydrate)
+    if (Object.keys(args).length !== Object.keys(schema).length) {
+      update(hydrate)
+    }
   }, [schema, args, hydrate])
 
   // Sync with leva store when values change externally (e.g. URL hydration)
   const storeData = levaStore.useStore(s => s.data)
   useEffect(() => {
     const synced: Partial<R> = {}
+
     for (const [k] of entries) {
       const key = `${label}.${k}`
-      const storeVal = storeData[key]?.value
+      const storeVal = (storeData[key] as any)?.value
+
       if (storeVal !== undefined && storeVal !== args[k as keyof R]) {
         synced[k as keyof R] = storeVal
       }
     }
-    if (Object.keys(synced).length) update(s => ({ ...s, ...synced }))
+
+    if (Object.keys(synced).length) {
+      update(s => ({ ...s, ...synced }))
+    }
   }, [storeData, label, entries])
 
   const [, set] = useControls(
@@ -64,9 +71,9 @@ export function useSmoothControls<T extends Record<string, any>>(
 
             typeof e === 'number' && args[key] !== e
               ? gsap.to(args, {
-                  [key]: e,
                   duration: options?.duration ?? 0.35,
                   ease: 'circ.out',
+                  [key]: e,
                   onUpdate: () => update(s => ({ ...s, [key]: args[key] }))
                 })
               : update(s => ({ ...s, [key]: e }))
@@ -90,6 +97,7 @@ export function useSmoothControls<T extends Record<string, any>>(
       ),
 
       ' ': buttonGroup({
+        flatten: () => set(Object.fromEntries(values.map(([k]) => [k, 0]))),
         randomize: () => {
           set(
             Object.fromEntries(
@@ -106,8 +114,7 @@ export function useSmoothControls<T extends Record<string, any>>(
         reset: () => {
           set(Object.fromEntries(values.map(([k, { value: v }]) => [k, v])))
           options?.onReset?.()
-        },
-        flatten: () => set(Object.fromEntries(values.map(([k]) => [k, 0])))
+        }
       })
     }),
     options,

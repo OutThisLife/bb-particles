@@ -7,8 +7,8 @@ import { tunnel } from './tunnel'
 export const presets = {
   'Fibonacci Spiral': fibonacci,
   'Galaxy Spiral': galaxySpiral,
-  'Solar Flare': solarFlare,
   Kaleidoscope: kaleidoscope,
+  'Solar Flare': solarFlare,
   'Tunnel Vision': tunnel
 } as const
 

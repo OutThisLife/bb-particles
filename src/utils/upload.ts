@@ -1,8 +1,10 @@
-import { $object } from '@/store'
 import * as THREE from 'three'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
-import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { type GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+
+import { $object } from '@/store'
+
 import { loadFileAsArrayBuffer } from './buffers'
 
 export const upload = async (file: File) => {

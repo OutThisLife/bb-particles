@@ -1,12 +1,13 @@
 import { extend, useFrame, useThree } from '@react-three/fiber'
 import { useMemo } from 'react'
 import { EffectComposer, RenderPass } from 'three/examples/jsm/Addons.js'
+
 import { CustomAfterPass } from './AfterPass'
 
-extend({ EffectComposer, RenderPass, CustomAfterPass })
+extend({ CustomAfterPass, EffectComposer, RenderPass })
 
 export default function Effects() {
-  const { gl, scene, camera } = useThree()
+  const { camera, gl, scene } = useThree()
 
   const fx = useMemo(() => {
     const composer = new EffectComposer(gl)

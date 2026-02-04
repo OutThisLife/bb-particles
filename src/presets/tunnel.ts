@@ -1,16 +1,16 @@
 export const tunnel = {
-  'Element.geometry': 'ring',
   'Element.blend': false,
-  'Scalars.repetitions': 80,
+  'Element.geometry': 'ring',
   'Scalars.alphaFactor': 0.6,
-  'Scalars.scaleFactor': 0.95,
+  'Scalars.repetitions': 80,
   'Scalars.rotationFactor': 0,
-  'Scalars.stepFactor': 0.08,
-  'Scalars.scaleProgression': 'linear',
   'Scalars.rotationProgression': 'linear',
+  'Scalars.scaleFactor': 0.95,
+  'Scalars.scaleProgression': 'linear',
+  'Scalars.stepFactor': 0.08,
+  'Scene.position': { x: 0, y: 0 },
+  'Scene.scale': 1.5,
   'Spatial.origin': 'center',
   'Spatial.xStep': 0,
-  'Spatial.yStep': 0,
-  'Scene.position': { x: 0, y: 0 },
-  'Scene.scale': 1.5
+  'Spatial.yStep': 0
 } as const

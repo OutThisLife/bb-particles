@@ -10,6 +10,7 @@ const writeUVar = (buf: number[], v: number) => {
     buf.push((v & 127) | 128)
     v >>>= 7
   }
+
   buf.push(v & 127)
 }
 
@@ -17,19 +18,27 @@ const readUVar = (buf: number[], o: number): [number, number] => {
   let r = 0,
     n = 0,
     s = 0
+
   while (o + n < buf.length) {
     const b = buf[o + n]
     r |= (b & 127) << s
     n++
-    if (!(b & 128)) break
+
+    if (!(b & 128)) {
+      break
+    }
+
     s += 7
   }
+
   return [r, n]
 }
 
 const writeSVar = (buf: number[], v: number) => writeUVar(buf, zigzag(v))
+
 const readSVar = (buf: number[], o: number): [number, number] => {
   const [v, n] = readUVar(buf, o)
+
   return [unzigzag(v), n]
 }
 
@@ -39,7 +48,9 @@ export const encode = (data: Record<string, any>): string => {
   const buf: number[] = []
 
   for (const [key, entry] of Object.entries(data)) {
-    if (entry?.value === undefined) continue
+    if (entry?.value === undefined) {
+      continue
+    }
 
     const kb = Array.from(new TextEncoder().encode(key))
     buf.push(kb.length, ...kb)
@@ -48,6 +59,7 @@ export const encode = (data: Record<string, any>): string => {
     const optBits = isOptional ? 8 | (entry.disabled ? 16 : 0) : 0
 
     const v = entry.value
+
     if (typeof v === 'number') {
       buf.push(0 | optBits)
       writeSVar(buf, Math.round(v * 1000))
@@ -67,11 +79,18 @@ export const encode = (data: Record<string, any>): string => {
   }
 
   let out = ''
+
   for (let i = 0; i < buf.length; i += 3) {
     const c = (buf[i] << 16) | ((buf[i + 1] ?? 0) << 8) | (buf[i + 2] ?? 0)
     out += CHARS[(c >> 18) & 63] + CHARS[(c >> 12) & 63]
-    if (i + 1 < buf.length) out += CHARS[(c >> 6) & 63]
-    if (i + 2 < buf.length) out += CHARS[c & 63]
+
+    if (i + 1 < buf.length) {
+      out += CHARS[(c >> 6) & 63]
+    }
+
+    if (i + 2 < buf.length) {
+      out += CHARS[c & 63]
+    }
   }
 
   return out
@@ -89,8 +108,14 @@ export const decode = (str: string): Record<string, EncodedEntry> => {
       const c = (c0 << 18) | (c1 << 12) | (c2 << 6) | c3
 
       buf.push((c >> 16) & 255)
-      if (i + 2 < str.length) buf.push((c >> 8) & 255)
-      if (i + 3 < str.length) buf.push(c & 255)
+
+      if (i + 2 < str.length) {
+        buf.push((c >> 8) & 255)
+      }
+
+      if (i + 3 < str.length) {
+        buf.push(c & 255)
+      }
     }
 
     const result: Record<string, EncodedEntry> = {}
@@ -98,13 +123,19 @@ export const decode = (str: string): Record<string, EncodedEntry> => {
 
     while (o < buf.length) {
       const kl = buf[o++]
-      if (!kl || o + kl > buf.length) break
+
+      if (!kl || o + kl > buf.length) {
+        break
+      }
 
       const key = new TextDecoder().decode(new Uint8Array(buf.slice(o, o + kl)))
       o += kl
 
       const tb = buf[o++]
-      if (tb === undefined) break
+
+      if (tb === undefined) {
+        break
+      }
 
       const t = tb & 7
       const isOptional = (tb & 8) !== 0
@@ -132,7 +163,7 @@ export const decode = (str: string): Record<string, EncodedEntry> => {
         o += len
       }
 
-      result[key] = isOptional ? { value, disabled } : { value }
+      result[key] = isOptional ? { disabled, value } : { value }
     }
 
     return result
@@ -178,26 +209,26 @@ export type LayerParams = {
 }
 
 export const DEFAULT_PARAMS: SceneParams = {
-  geometry: 'ring',
-  color: '#FFFDDD',
-  repetitions: 65,
   alphaFactor: 0.65,
-  scaleFactor: 1.05,
-  rotationFactor: 0,
-  stepFactor: 0.02,
-  scaleProgression: 'exponential',
-  rotationProgression: 'linear',
   alphaProgression: 'exponential',
-  positionProgression: 'index',
-  positionCoupled: true,
-  origin: 'top-center',
-  xStep: -1.5,
-  yStep: 0,
+  color: '#FFFDDD',
   debug: false,
+  geometry: 'ring',
+  layers: [{ position: { x: 0, y: 0 }, rotation: 0, scale: { x: -1, y: 1 } }],
+  origin: 'top-center',
   position: { x: 0, y: -0.5 },
+  positionCoupled: true,
+  positionProgression: 'index',
+  repetitions: 65,
   rotation: 0,
+  rotationFactor: 0,
+  rotationProgression: 'linear',
   scale: 0.85,
-  layers: [{ position: { x: 0, y: 0 }, rotation: 0, scale: { x: -1, y: 1 } }]
+  scaleFactor: 1.05,
+  scaleProgression: 'exponential',
+  stepFactor: 0.02,
+  xStep: -1.5,
+  yStep: 0
 }
 
 // Convert decoded leva data to flat SceneParams
@@ -209,48 +240,83 @@ export const toSceneParams = (
   // Extract layers from g0, g1, etc.
   const layers: LayerParams[] = []
   let i = 0
+
   while (data[`g${i}-position`] || data[`g${i}-scale`]) {
     const layer: LayerParams = {
       position: get(`g${i}-position`, { x: 0, y: 0 }),
       rotation: get(`g${i}-rotation`, 0),
       scale: get(`g${i}-scale`, { x: -1, y: 1 })
     }
-    if (data[`g${i}-stepFactor`] && !data[`g${i}-stepFactor`].disabled)
+
+    if (data[`g${i}-stepFactor`] && !data[`g${i}-stepFactor`].disabled) {
       layer.stepFactor = data[`g${i}-stepFactor`].value
-    if (data[`g${i}-alphaFactor`] && !data[`g${i}-alphaFactor`].disabled)
+    }
+
+    if (data[`g${i}-alphaFactor`] && !data[`g${i}-alphaFactor`].disabled) {
       layer.alphaFactor = data[`g${i}-alphaFactor`].value
-    if (data[`g${i}-scaleFactor`] && !data[`g${i}-scaleFactor`].disabled)
+    }
+
+    if (data[`g${i}-scaleFactor`] && !data[`g${i}-scaleFactor`].disabled) {
       layer.scaleFactor = data[`g${i}-scaleFactor`].value
-    if (data[`g${i}-rotationFactor`] && !data[`g${i}-rotationFactor`].disabled)
+    }
+
+    if (
+      data[`g${i}-rotationFactor`] &&
+      !data[`g${i}-rotationFactor`].disabled
+    ) {
       layer.rotationFactor = data[`g${i}-rotationFactor`].value
-    if (data[`g${i}-color`] && !data[`g${i}-color`].disabled)
+    }
+
+    if (data[`g${i}-color`] && !data[`g${i}-color`].disabled) {
       layer.color = data[`g${i}-color`].value
-    if (data[`g${i}-geometry`] && !data[`g${i}-geometry`].disabled)
+    }
+
+    if (data[`g${i}-geometry`] && !data[`g${i}-geometry`].disabled) {
       layer.geometry = data[`g${i}-geometry`].value
+    }
+
     layers.push(layer)
     i++
   }
 
   return {
-    geometry: get('Element.geometry', DEFAULT_PARAMS.geometry),
-    color: get('Element.color', DEFAULT_PARAMS.color),
-    repetitions: get('Scalars.repetitions', DEFAULT_PARAMS.repetitions),
     alphaFactor: get('Scalars.alphaFactor', DEFAULT_PARAMS.alphaFactor),
-    scaleFactor: get('Scalars.scaleFactor', DEFAULT_PARAMS.scaleFactor),
-    rotationFactor: get('Scalars.rotationFactor', DEFAULT_PARAMS.rotationFactor),
-    stepFactor: get('Scalars.stepFactor', DEFAULT_PARAMS.stepFactor),
-    scaleProgression: get('Scalars.scaleProgression', DEFAULT_PARAMS.scaleProgression),
-    rotationProgression: get('Scalars.rotationProgression', DEFAULT_PARAMS.rotationProgression),
-    alphaProgression: get('Scalars.alphaProgression', DEFAULT_PARAMS.alphaProgression),
-    positionProgression: get('Scalars.positionProgression', DEFAULT_PARAMS.positionProgression),
-    positionCoupled: get('Scalars.positionCoupled', DEFAULT_PARAMS.positionCoupled),
-    origin: get('Spatial.origin', DEFAULT_PARAMS.origin),
-    xStep: get('Spatial.xStep', DEFAULT_PARAMS.xStep),
-    yStep: get('Spatial.yStep', DEFAULT_PARAMS.yStep),
+    alphaProgression: get(
+      'Scalars.alphaProgression',
+      DEFAULT_PARAMS.alphaProgression
+    ),
+    color: get('Element.color', DEFAULT_PARAMS.color),
     debug: get('Scene.debug', DEFAULT_PARAMS.debug),
+    geometry: get('Element.geometry', DEFAULT_PARAMS.geometry),
+    layers,
+    origin: get('Spatial.origin', DEFAULT_PARAMS.origin),
     position: get('Scene.position', DEFAULT_PARAMS.position),
+    positionCoupled: get(
+      'Scalars.positionCoupled',
+      DEFAULT_PARAMS.positionCoupled
+    ),
+    positionProgression: get(
+      'Scalars.positionProgression',
+      DEFAULT_PARAMS.positionProgression
+    ),
+    repetitions: get('Scalars.repetitions', DEFAULT_PARAMS.repetitions),
     rotation: get('Scene.rotation', DEFAULT_PARAMS.rotation),
+    rotationFactor: get(
+      'Scalars.rotationFactor',
+      DEFAULT_PARAMS.rotationFactor
+    ),
+    rotationProgression: get(
+      'Scalars.rotationProgression',
+      DEFAULT_PARAMS.rotationProgression
+    ),
     scale: get('Scene.scale', DEFAULT_PARAMS.scale),
-    layers
+    scaleFactor: get('Scalars.scaleFactor', DEFAULT_PARAMS.scaleFactor),
+    scaleProgression: get(
+      'Scalars.scaleProgression',
+      DEFAULT_PARAMS.scaleProgression
+    ),
+    stepFactor: get('Scalars.stepFactor', DEFAULT_PARAMS.stepFactor),
+    xStep: get('Spatial.xStep', DEFAULT_PARAMS.xStep),
+    yStep: get('Spatial.yStep', DEFAULT_PARAMS.yStep)
   }
 }

@@ -1,8 +1,9 @@
-import { $layers } from '@/store'
-import { decode, encode } from '@/utils/codec'
 import { useStore } from '@nanostores/react'
 import { levaStore } from 'leva'
 import { useEffect } from 'react'
+
+import { $layers } from '@/store'
+import { decode, encode } from '@/utils/codec'
 
 let hydrated = false
 
@@ -27,18 +28,24 @@ export default function useLinkableControls() {
   )
 
   useEffect(() => {
-    if (!data || !Object.keys(data).length) return
+    if (!data || !Object.keys(data).length) {
+      return
+    }
 
     const url = new URL(window.location.href)
 
     // Hydrate from URL on first load
     if (!hydrated && url.searchParams.has('c')) {
       const params = decode(url.searchParams.get('c')!)
-      if (!Object.keys(params).length) return
+
+      if (!Object.keys(params).length) {
+        return
+      }
 
       // Ensure enough layers exist before hydrating
       if (countLayers(Object.keys(params)) > countLayers(Object.keys(data))) {
         $layers.set(countLayers(Object.keys(params)))
+
         return
       }
 
@@ -72,6 +79,7 @@ export default function useLinkableControls() {
       }
 
       hydrated = true
+
       return
     }
 

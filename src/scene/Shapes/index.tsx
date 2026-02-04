@@ -5,12 +5,15 @@ import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 export function Ring() {
   const curve = useMemo(() => {
     const pts: THREE.Vector3[] = []
+
     for (let i = 0; i <= 128; i++) {
       const t = (i / 128) * Math.PI * 2
       pts.push(new THREE.Vector3(Math.cos(t) * 0.9, Math.sin(t) * 0.9, 0))
     }
+
     return new THREE.CatmullRomCurve3(pts, true)
   }, [])
+
   return <tubeGeometry args={[curve, 128, 0.008, 4, false]} />
 }
 
@@ -27,6 +30,7 @@ export function Bar() {
       ),
     []
   )
+
   return <tubeGeometry args={[curve, 16, 0.006, 4, false]} />
 }
 
@@ -34,10 +38,12 @@ export function Arch() {
   const curve = useMemo(() => {
     const pts: THREE.Vector3[] = []
     const segments = 64
+
     for (let i = 0; i <= segments; i++) {
       const t = (i / segments) * Math.PI
       pts.push(new THREE.Vector3(Math.cos(t) * 0.8, Math.sin(t) * 0.8, 0))
     }
+
     return new THREE.CatmullRomCurve3(pts, false)
   }, [])
 
@@ -49,6 +55,7 @@ export function Spiral() {
     const pts: THREE.Vector3[] = []
     const turns = 3
     const segments = 128
+
     for (let i = 0; i <= segments; i++) {
       const t = i / segments
       const angle = t * Math.PI * 2 * turns
@@ -61,6 +68,7 @@ export function Spiral() {
         )
       )
     }
+
     return new THREE.CatmullRomCurve3(pts, false)
   }, [])
 
@@ -71,20 +79,23 @@ export function Wave() {
   const curve = useMemo(() => {
     const pts: THREE.Vector3[] = []
     const segments = 96
+
     for (let i = 0; i <= segments; i++) {
       const t = (i / segments) * 2 - 1
       pts.push(new THREE.Vector3(t * 0.9, Math.sin(t * Math.PI * 2) * 0.3, 0))
     }
+
     return new THREE.CatmullRomCurve3(pts, false)
   }, [])
 
   return <tubeGeometry args={[curve, 96, 0.008, 4, false]} />
 }
 
-export function Infinity() {
+export function InfinityShape() {
   const curve = useMemo(() => {
     const pts: THREE.Vector3[] = []
     const segments = 128
+
     for (let i = 0; i <= segments; i++) {
       const t = (i / segments) * Math.PI * 2
       const scale = 0.6
@@ -96,6 +107,7 @@ export function Infinity() {
         )
       )
     }
+
     return new THREE.CatmullRomCurve3(pts, true)
   }, [])
 
@@ -105,6 +117,7 @@ export function Infinity() {
 export function Square() {
   const curve = useMemo(() => {
     const s = 0.7
+
     return new THREE.CatmullRomCurve3(
       [
         new THREE.Vector3(-s, -s, 0),
@@ -118,15 +131,18 @@ export function Square() {
       0
     )
   }, [])
+
   return <tubeGeometry args={[curve, 64, 0.008, 4, false]} />
 }
 
 export function RoundedRect() {
   const curve = useMemo(() => {
     const pts: THREE.Vector3[] = []
+
     const s = 0.65,
       r = 0.35,
       seg = 24
+
     const corner = (cx: number, cy: number, start: number) => {
       for (let i = 0; i <= seg; i++) {
         const a = start + (i / seg) * (Math.PI / 2)
@@ -135,34 +151,45 @@ export function RoundedRect() {
         )
       }
     }
+
     corner(-s + r, -s + r, Math.PI) // bottom-left
     corner(s - r, -s + r, Math.PI * 1.5) // bottom-right
     corner(s - r, s - r, 0) // top-right
     corner(-s + r, s - r, Math.PI / 2) // top-left
     pts.push(pts[0].clone())
+
     return new THREE.CatmullRomCurve3(pts, false)
   }, [])
+
   return <tubeGeometry args={[curve, 96, 0.008, 4, false]} />
 }
 
 export function U() {
   const curve = useMemo(() => {
     const pts: THREE.Vector3[] = []
+
     const w = 0.4,
       h = 0.9
+
     // left leg
-    for (let i = 0; i <= 16; i++)
+    for (let i = 0; i <= 16; i++) {
       pts.push(new THREE.Vector3(-w, h - (i * (h + 0.4)) / 16, 0))
+    }
+
     // bottom curve
     for (let i = 0; i <= 32; i++) {
       const a = Math.PI + (i / 32) * Math.PI
       pts.push(new THREE.Vector3(Math.cos(a) * w, Math.sin(a) * w - 0.4, 0))
     }
+
     // right leg
-    for (let i = 0; i <= 16; i++)
+    for (let i = 0; i <= 16; i++) {
       pts.push(new THREE.Vector3(w, -0.4 + (i * (h + 0.4)) / 16, 0))
+    }
+
     return new THREE.CatmullRomCurve3(pts, false)
   }, [])
+
   return <tubeGeometry args={[curve, 96, 0.008, 4, false]} />
 }
 
@@ -175,6 +202,7 @@ export function Line() {
       ),
     []
   )
+
   return <tubeGeometry args={[curve, 16, 0.006, 4, false]} />
 }
 
@@ -187,7 +215,10 @@ export function Q() {
       '/q.svg',
       data => {
         const path = data.paths[0]
-        if (!path?.subPaths?.length) return setLoading(false)
+
+        if (!path?.subPaths?.length) {
+          return setLoading(false)
+        }
 
         const geos = path.subPaths
           .map(sub => sub.getPoints(100))
@@ -195,8 +226,10 @@ export function Q() {
           .map(pts => {
             const xs = pts.map(p => p.x),
               ys = pts.map(p => p.y)
+
             const cx = (Math.min(...xs) + Math.max(...xs)) / 2
             const cy = (Math.min(...ys) + Math.max(...ys)) / 2
+
             const curve = new THREE.CatmullRomCurve3(
               pts.map(
                 p =>
@@ -204,6 +237,7 @@ export function Q() {
               ),
               false
             )
+
             return new THREE.TubeGeometry(curve, 64, 0.008, 4, false)
           })
 
@@ -215,7 +249,9 @@ export function Q() {
     )
   }, [])
 
-  if (loading) return <ringGeometry args={[0.9, 1, 32, 1, 0, Math.PI * 1.5]} />
+  if (loading) {
+    return <ringGeometry args={[0.9, 1, 32, 1, 0, Math.PI * 1.5]} />
+  }
 
   return geometries.length > 0 ? (
     <>
@@ -244,21 +280,21 @@ export const SHAPES = [
 ] as const
 
 const MAP: Record<string, () => JSX.Element> = {
-  ring: Ring,
-  bar: Bar,
-  line: Line,
   arch: Arch,
-  u: U,
+  bar: Bar,
+  infinity: InfinityShape,
+  line: Line,
+  ring: Ring,
+  roundedRect: RoundedRect,
   spiral: Spiral,
-  wave: Wave,
-  infinity: Infinity,
   square: Square,
-  roundedRect: RoundedRect
+  u: U,
+  wave: Wave
 }
 
 export const Geo = ({
-  shape,
-  gltf
+  gltf,
+  shape
 }: {
   shape: string
   gltf?: THREE.BufferGeometry[]

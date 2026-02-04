@@ -1,12 +1,13 @@
 'use client'
 
-import SceneCore from '@/scene/Core'
-import { DEFAULT_PARAMS } from '@/utils/codec'
 import { Canvas, useThree } from '@react-three/fiber'
 import { EffectComposer, SMAA } from '@react-three/postprocessing'
 import { useSearchParams } from 'next/navigation'
 import { Suspense, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
+
+import { SceneCore } from '@/scene/Core'
+import { DEFAULT_PARAMS } from '@/utils/codec'
 
 declare global {
   interface Window {
@@ -37,7 +38,11 @@ function Inner() {
 
   const params = useMemo(() => {
     const p = searchParams.get('p')
-    if (!p) return DEFAULT_PARAMS
+
+    if (!p) {
+      return DEFAULT_PARAMS
+    }
+
     try {
       return { ...DEFAULT_PARAMS, ...JSON.parse(decodeURIComponent(p)) }
     } catch {
@@ -47,21 +52,22 @@ function Inner() {
 
   return (
     <Canvas
-      orthographic
-      style={{ width: '100vw', height: '100vh' }}
       gl={{
-        antialias: true,
         alpha: true,
-        stencil: false,
+        antialias: true,
         depth: false,
         powerPreference: 'high-performance',
-        preserveDrawingBuffer: true
+        preserveDrawingBuffer: true,
+        stencil: false
       }}
       onCreated={() => {
         requestAnimationFrame(() => {
           window.__RENDER_READY__ = true
         })
-      }}>
+      }}
+      orthographic
+      style={{ height: '100vh', width: '100vw' }}
+    >
       <CameraSetup />
       <SceneCore params={params} />
       <EffectComposer multisampling={0}>

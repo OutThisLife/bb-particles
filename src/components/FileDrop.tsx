@@ -1,21 +1,23 @@
 'use client'
 
-import { upload } from '@/utils/upload'
-import clsx from 'clsx'
 import { useDropzone } from 'react-dropzone'
 
-export default function FileDrop() {
-  const { getRootProps, getInputProps, isDragActive, fileRejections } =
+import { cn } from '@/utils'
+import { upload } from '@/utils/upload'
+
+export const FileDrop = () => {
+  const { fileRejections, getInputProps, getRootProps, isDragActive } =
     useDropzone({ onDrop: ([file]) => upload(file) })
 
   return (
     <div
-      className={clsx(
+      className={cn(
         'z-[100] fixed inset-0 flex flex-col items-center justify-center',
         'text-2xl font-bold',
         isDragActive ? 'bg-black/90' : 'bg-black/25'
       )}
-      {...getRootProps()}>
+      {...getRootProps()}
+    >
       <input {...getInputProps()} />
 
       {isDragActive ? (

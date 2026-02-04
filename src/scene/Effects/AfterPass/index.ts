@@ -1,17 +1,18 @@
 import * as THREE from 'three'
-import { FullScreenQuad, Pass } from 'three/examples/jsm/postprocessing/Pass'
+import { FullScreenQuad, Pass } from 'three/examples/jsm/postprocessing/Pass.js'
+
 import fragmentShader from './frag.fs'
 import vertexShader from './vert.vs'
 
 const AfterImageShader = {
-  uniforms: {
-    tOld: { value: new THREE.Texture() },
-    tNew: { value: new THREE.Texture() },
-    damp: { value: 0.96 }
-  },
+  fragmentShader,
 
-  vertexShader,
-  fragmentShader
+  uniforms: {
+    damp: { value: 0.96 },
+    tNew: { value: new THREE.Texture() },
+    tOld: { value: new THREE.Texture() }
+  },
+  vertexShader
 }
 
 export class CustomAfterPass extends Pass {
@@ -33,9 +34,9 @@ export class CustomAfterPass extends Pass {
       window.innerWidth,
       window.innerHeight,
       {
+        format: THREE.RGBAFormat,
         magFilter: THREE.NearestFilter,
-        type: THREE.HalfFloatType,
-        format: THREE.RGBAFormat
+        type: THREE.HalfFloatType
       }
     )
 
@@ -43,30 +44,30 @@ export class CustomAfterPass extends Pass {
       window.innerWidth,
       window.innerHeight,
       {
+        format: THREE.RGBAFormat,
         magFilter: THREE.NearestFilter,
-        type: THREE.HalfFloatType,
-        format: THREE.RGBAFormat
+        type: THREE.HalfFloatType
       }
     )
 
     this.compFsMaterial = new THREE.ShaderMaterial({
+      fragmentShader,
       uniforms: this.uniforms,
-      vertexShader,
-      fragmentShader
+      vertexShader
     })
 
     this.compFsQuad = new FullScreenQuad(this.compFsMaterial)
 
     this.copyFsMaterial = new THREE.ShaderMaterial({
-      uniforms: { tDiffuse: { value: new THREE.Texture() } },
-      vertexShader,
       fragmentShader: `
         uniform sampler2D tDiffuse;
         varying vec2 vUv;
         void main() {
           gl_FragColor = texture2D(tDiffuse, vUv);
         }
-      `
+      `,
+      uniforms: { tDiffuse: { value: new THREE.Texture() } },
+      vertexShader
     })
 
     this.copyFsQuad = new FullScreenQuad(this.copyFsMaterial)

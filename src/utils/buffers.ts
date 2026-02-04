@@ -20,6 +20,7 @@ export const stringToArrayBuffer = (text: string, encoding = 'UTF-8') =>
   new Promise<ArrayBuffer>((resolve, reject) => {
     const blob = new Blob([text], { type: `text/plain;charset=${encoding}` })
     const reader = new FileReader()
+
     reader.onload = evt => {
       if (evt.target) {
         resolve(evt.target.result as ArrayBuffer)
@@ -27,5 +28,6 @@ export const stringToArrayBuffer = (text: string, encoding = 'UTF-8') =>
         reject(new Error('Could not convert string to array!'))
       }
     }
+
     reader.readAsArrayBuffer(blob)
   })

@@ -1,5 +1,11 @@
 'use client'
 
+import { useStore } from '@nanostores/react'
+import type { InstancesProps } from '@react-three/drei'
+import { Instance, InstancedAttribute, Instances } from '@react-three/drei'
+import { useMemo } from 'react'
+import * as THREE from 'three'
+
 import { $object } from '@/store'
 import {
   calcAlpha,
@@ -11,15 +17,6 @@ import {
   obcInstanced
 } from '@/utils'
 import type { LayerParams, SceneParams } from '@/utils/codec'
-import { useStore } from '@nanostores/react'
-import {
-  Instance,
-  InstancedAttribute,
-  Instances,
-  InstancesProps
-} from '@react-three/drei'
-import { useMemo } from 'react'
-import * as THREE from 'three'
 
 import { Geo } from './Shapes'
 
@@ -31,7 +28,7 @@ interface LayerProps extends InstancesProps {
   gltf?: THREE.BufferGeometry[]
 }
 
-function Layer({ p, o, gltf, ...rest }: LayerProps) {
+function Layer({ gltf, o, p, ...rest }: LayerProps) {
   const sf = o?.scaleFactor ?? p.scaleFactor
   const rf = o?.rotationFactor ?? p.rotationFactor
   const af = o?.alphaFactor ?? p.alphaFactor
@@ -43,26 +40,34 @@ function Layer({ p, o, gltf, ...rest }: LayerProps) {
 
   return (
     <Instances {...rest}>
-      <InstancedAttribute name="opacity" defaultValue={1} />
-      <InstancedAttribute name="iColor" defaultValue={[1, 1, 1]} />
+      <InstancedAttribute defaultValue={1} name="opacity" />
+      <InstancedAttribute defaultValue={[1, 1, 1]} name="iColor" />
 
-      <Geo shape={geo} gltf={gltf} />
+      <Geo gltf={gltf} shape={geo} />
 
       <meshBasicMaterial
+        blending={THREE.AdditiveBlending}
         color={color}
-        transparent
         depthTest={false}
         depthWrite={false}
-        blending={THREE.AdditiveBlending}
         onBeforeCompile={obcChain(obcInstanced, obcGradient)}
+        transparent
       />
 
       {Array.from({ length: p.repetitions }, (_, i) => {
         const sc = calcScale(i, sf, p.scaleProgression)
+
         return (
           <Instance
+            // @ts-expect-error custom attributes
+            iColor={color.toArray()}
             key={i}
-            scale={sc}
+            opacity={calcAlpha(
+              i,
+              p.repetitions,
+              af,
+              p.alphaProgression ?? 'exponential'
+            )}
             position={calcPosition(
               i,
               sc,
@@ -79,14 +84,7 @@ function Layer({ p, o, gltf, ...rest }: LayerProps) {
               0,
               (calcRotation(i, rf, p.rotationProgression) * Math.PI) / 180
             ]}
-            // @ts-expect-error custom attributes
-            opacity={calcAlpha(
-              i,
-              p.repetitions,
-              af,
-              p.alphaProgression ?? 'exponential'
-            )}
-            iColor={color.toArray()}
+            scale={sc}
           />
         )
       })}
@@ -94,17 +92,18 @@ function Layer({ p, o, gltf, ...rest }: LayerProps) {
   )
 }
 
-export default function SceneCore({ params: p }: { params: SceneParams }) {
+export const SceneCore = ({ params: p }: { params: SceneParams }) => {
   const gltf = useStore($object)
 
   if (p.debug) {
     return (
       <group
         position={[p.position.x, p.position.y, 0]}
+        rotation={[0, 0, p.rotation]}
         scale={p.scale}
-        rotation={[0, 0, p.rotation]}>
+      >
         <mesh>
-          <Geo shape={p.geometry} gltf={gltf} />
+          <Geo gltf={gltf} shape={p.geometry} />
           <meshBasicMaterial />
         </mesh>
       </group>
@@ -114,17 +113,19 @@ export default function SceneCore({ params: p }: { params: SceneParams }) {
   return (
     <group
       position={[p.position.x, p.position.y, 0]}
+      rotation={[0, 0, p.rotation]}
       scale={p.scale}
-      rotation={[0, 0, p.rotation]}>
-      <Layer p={p} gltf={gltf} />
+    >
+      <Layer gltf={gltf} p={p} />
 
       {p.layers.map((layer, i) => (
         <group
           key={i}
           position={[layer.position?.x ?? 0, layer.position?.y ?? 0, 0]}
           rotation={[0, 0, layer.rotation ?? 0]}
-          scale={[layer.scale?.x ?? 1, layer.scale?.y ?? 1, 1]}>
-          <Layer p={p} o={layer} gltf={gltf} />
+          scale={[layer.scale?.x ?? 1, layer.scale?.y ?? 1, 1]}
+        >
+          <Layer gltf={gltf} o={layer} p={p} />
         </group>
       ))}
     </group>

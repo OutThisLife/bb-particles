@@ -1,5 +1,7 @@
+import type { Browser } from 'playwright'
+import { chromium } from 'playwright'
+
 import type { SceneParams } from '@/utils/codec'
-import { Browser, chromium } from 'playwright'
 
 let browser: Browser | null = null
 
@@ -17,9 +19,9 @@ export async function POST(req: Request) {
     height?: number
   }
 
-  const { width = 1024, height = 1024, ...sceneParams } = params
+  const { height = 1024, width = 1024, ...sceneParams } = params
   const b = await getBrowser()
-  const page = await b.newPage({ viewport: { width, height } })
+  const page = await b.newPage({ viewport: { height, width } })
 
   try {
     const baseUrl = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'
@@ -34,14 +36,14 @@ export async function POST(req: Request) {
     })
 
     const buffer = await page.screenshot({
-      type: 'png',
-      omitBackground: true
+      omitBackground: true,
+      type: 'png'
     })
 
     return new Response(new Uint8Array(buffer), {
       headers: {
-        'Content-Type': 'image/png',
-        'Cache-Control': 'no-store'
+        'Cache-Control': 'no-store',
+        'Content-Type': 'image/png'
       }
     })
   } finally {
