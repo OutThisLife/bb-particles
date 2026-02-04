@@ -1,76 +1,57 @@
 import type { WebGLProgramParametersWithUniforms } from 'three'
 
-export const obcAlpha = (shader: WebGLProgramParametersWithUniforms) => {
-  shader.vertexShader = shader.vertexShader.replace(
+type OBC = (s: WebGLProgramParametersWithUniforms) => void
+
+export const obcInstanced: OBC = s => {
+  s.vertexShader = s.vertexShader.replace(
     'void main() {',
-    `
-    attribute float opacity;
-    varying float vOpacity;
-    void main() { vOpacity = opacity;
-    `
+    `attribute float opacity;
+attribute vec3 iColor;
+varying float vOpacity;
+varying vec3 vIColor;
+void main() {
+  vOpacity = opacity;
+  vIColor = iColor;`
   )
 
-  shader.fragmentShader = shader.fragmentShader
+  s.fragmentShader = s.fragmentShader
     .replace(
       'void main() {',
-      `
-      varying float vOpacity;
-      void main() {
-      `
+      `varying float vOpacity;
+varying vec3 vIColor;
+void main() {`
     )
     .replace(
       '#include <color_fragment>',
-      `
-      #include <color_fragment>
-      diffuseColor.a *= vOpacity;
-      `
+      `#include <color_fragment>
+diffuseColor.a *= vOpacity;
+diffuseColor.rgb *= vIColor;`
     )
 }
 
-export const obcGradient = (shader: WebGLProgramParametersWithUniforms) => {
-  shader.vertexShader = shader.vertexShader
+export const obcGradient: OBC = s => {
+  s.vertexShader = s.vertexShader
     .replace(
       '#include <common>',
-      `
-      #include <common>
-      varying vec3 vPosition;
-      varying vec2 vUv;
-      `
+      '#include <common>\nvarying vec3 vPosition;\nvarying vec2 vUv;'
     )
     .replace(
       '#include <begin_vertex>',
-      `
-      #include <begin_vertex>
-
-      vPosition = position;
-      vUv = uv;
-      `
+      '#include <begin_vertex>\nvPosition = position;\nvUv = uv;'
     )
 
-  shader.fragmentShader = shader.fragmentShader
+  s.fragmentShader = s.fragmentShader
     .replace(
       '#include <common>',
-      `
-      #include <common>
-
-      varying vec3 vPosition;
-      varying vec2 vUv;
-      `
+      '#include <common>\nvarying vec3 vPosition;\nvarying vec2 vUv;'
     )
     .replace(
       '#include <color_fragment>',
-      `
-      #include <color_fragment>
-
-      float d = 1.0 - smoothstep(.2, 1., abs(vPosition.y) * .5 + .5);
-      float taper = smoothstep(.95, 1., length(vPosition.xy - .5));
-
-      diffuseColor.rgb *= d;
-      `
+      '#include <color_fragment>\ndiffuseColor.rgb *= 1.0 - smoothstep(.2, 1., abs(vPosition.y) * .5 + .5);'
     )
 }
 
 export const obcChain =
-  (...fns: Array<typeof obcAlpha>) =>
-  (str: WebGLProgramParametersWithUniforms) =>
-    fns.reduce((acc, fn) => (fn(acc), acc), str)
+  (...fns: OBC[]): OBC =>
+  s =>
+    fns.forEach(f => f(s))

@@ -1,21 +1,17 @@
 'use client'
 
-/**
- * choose geometry
- * set repetition [x] numbers
- * - opacity by x*.1
- * - scaling down by x*.1
- * - opacity distribution per step by x*.1
- * - rotate by x*10 degrees
- * - translucent gradient to create blur and lighting
- * - mirror X xor Y?
- */
 import useLinkableControls from '@/hooks/useLinkableControls'
 import { useSmoothControls } from '@/hooks/useSmoothControls'
-import { presets, type PresetName } from '@/presets'
 import { $layers, $object } from '@/store'
-import { obcAlpha, obcChain, obcGradient } from '@/utils'
-import { upload } from '@/utils/upload'
+import {
+  calcAlpha,
+  calcPosition,
+  calcRotation,
+  calcScale,
+  obcChain,
+  obcGradient,
+  obcInstanced
+} from '@/utils'
 import { useStore } from '@nanostores/react'
 import {
   Instance,
@@ -28,16 +24,14 @@ import {
 } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { EffectComposer, SMAA } from '@react-three/postprocessing'
-import gsap from 'gsap'
 import { button, folder, levaStore, useControls } from 'leva'
-import { startTransition, Suspense, useEffect, useMemo } from 'react'
+import React, { Suspense, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
 import Controls from './Controls'
-import * as Shapes from './Shapes'
-import fragmentShader from './frag.fs'
+import { Geo, SHAPES } from './Shapes'
 
-const originOptions = [
+const ORIGINS = [
   'center',
   'top-center',
   'bottom-center',
@@ -47,56 +41,58 @@ const originOptions = [
   'bottom-right'
 ] as const
 
+function SyncedTransform({
+  levaKey,
+  enabled,
+  position = [0, 0, 0],
+  children
+}: {
+  levaKey: string
+  enabled: boolean
+  position?: [number, number, number]
+  children: React.ReactNode
+}) {
+  const ref = useRef<THREE.Group>(null!)
+
+  useEffect(() => {
+    const sync = () =>
+      ref.current &&
+      levaStore.set(
+        { [levaKey]: { x: ref.current.position.x, y: ref.current.position.y } },
+        false
+      )
+
+    window.addEventListener('pointerup', sync)
+    return () => window.removeEventListener('pointerup', sync)
+  }, [levaKey])
+
+  return (
+    <>
+      <group ref={ref} position={position}>
+        {children}
+      </group>
+      {enabled && <TransformControls object={ref} showZ={false} />}
+    </>
+  )
+}
+
+interface LayerProps extends InstancesProps {
+  scalars?: Record<string, any>
+  layerColor?: string
+  layerGeometry?: string
+}
+
 function Inner() {
   const gltf = useStore($object)
   const layers = useStore($layers)
 
-  const { preset } = useControls('Presets', {
-    preset: {
-      options: ['None', ...Object.keys(presets)],
-      value: 'None'
-    }
-  })
-
-  useEffect(() => {
-    if (preset !== 'None') {
-      const config = presets[preset as PresetName]
-      Object.entries(config).forEach(([key, val]) => {
-        levaStore.setValueAtPath(key, val, false)
-      })
-    }
-  }, [preset])
-
-  const { blend, geometry: initGeometry } = useSmoothControls(
+  const { color, geometry } = useSmoothControls(
     'Element',
     {
-      'upload (gltf, glb)': button(() => {
-        const $input = document.createElement('input')
-
-        $input.type = 'file'
-        $input.accept = '.gltf,.glb'
-        $input.style.display = 'none'
-
-        $input.onchange = e => {
-          const file = (e.target as HTMLInputElement).files?.[0]
-
-          if (file) {
-            startTransition(() => upload(file))
-          }
-        }
-
-        document.body.appendChild($input)
-        $input.click()
-        $input.parentElement?.removeChild($input)
-      }),
-      geometry: {
-        label: 'Primitive',
-        options: ['ring', 'bar', 'arch', 'disc', 'q'],
-        value: 'ring'
-      },
-      blend: { value: false }
+      geometry: { label: 'Shape', options: [...SHAPES], value: 'ring' },
+      color: { label: 'Color', value: '#FFFDDD' }
     },
-    { duration: 0.01, onReset: () => !!$object.get() && $object.set(undefined) }
+    { duration: 0.01 }
   )
 
   const { repetitions, ...scalars } = useSmoothControls('Scalars', {
@@ -106,14 +102,45 @@ function Inner() {
     rotationFactor: { value: 0, min: -1, max: 1, step: 0.01 },
     stepFactor: { value: 0.02, min: 0, max: 2, step: 0.01 },
     scaleProgression: {
-      options: ['linear', 'exponential', 'fibonacci', 'golden', 'sine'],
+      options: [
+        'linear',
+        'exponential',
+        'additive',
+        'fibonacci',
+        'golden',
+        'sine'
+      ],
       value: 'exponential'
     },
     rotationProgression: {
       options: ['linear', 'golden-angle', 'fibonacci', 'sine'],
       value: 'linear'
-    }
+    },
+    alphaProgression: {
+      options: ['exponential', 'linear', 'inverse'],
+      value: 'exponential'
+    },
+    positionProgression: { options: ['index', 'scale'], value: 'index' },
+    positionCoupled: { value: true }
   })
+
+  const { xStep, yStep, origin } = useSmoothControls('Spatial', {
+    origin: { label: 'Origin', options: ORIGINS, value: 'top-center' },
+    xStep: { label: 'X Step', value: -1.5, min: -2, max: 2, step: 0.01 },
+    yStep: { label: 'Y Step', value: 0, min: -2, max: 2, step: 0.01 }
+  })
+
+  const { debug, transform, position, scale, rotation } = useSmoothControls(
+    'Scene',
+    {
+      debug: { value: false },
+      transform: { value: false },
+      position: { value: { x: 0, y: -0.5 }, min: -2, max: 2, step: 0.01 },
+      rotation: { value: 0, min: -Math.PI, max: Math.PI, step: 0.01 },
+      scale: { value: 0.85, min: 0, max: 2, step: 0.01 }
+    },
+    { collapsed: true, duration: 0.01 }
+  )
 
   const [reflections] = useControls(
     'Groups',
@@ -183,6 +210,19 @@ function Inner() {
                   optional: true,
                   disabled: true
                 },
+                [`g${i}-color`]: {
+                  label: 'color',
+                  value: '#FFFDDD',
+                  optional: true,
+                  disabled: true
+                },
+                [`g${i}-geometry`]: {
+                  label: 'Shape',
+                  options: [...SHAPES],
+                  value: 'ring',
+                  optional: true,
+                  disabled: true
+                },
                 [`remove-g${i}`]: button(() => $layers.set($layers.get() - 1))
               },
               { collapsed: true }
@@ -194,69 +234,15 @@ function Inner() {
     [layers]
   )
 
-  const { xStep, yStep, origin } = useSmoothControls('Spatial', {
-    origin: {
-      label: 'Origin',
-      options: originOptions,
-      value: 'top-center'
-    },
-    xStep: {
-      label: 'X Step',
-      value: -1.5,
-      min: -2,
-      max: 2,
-      step: 0.01
-    },
-    yStep: {
-      label: 'Y Step',
-      value: 0,
-      min: -2,
-      max: 2,
-      step: 0.01
-    }
-  })
-
-  const { debug, transform, position, scale, rotation } = useSmoothControls(
-    'Scene',
-    {
-      debug: { label: 'Debug', value: false },
-      transform: { label: 'Transform', value: false },
-      position: {
-        label: 'Position',
-        value: { x: 0, y: -0.5 },
-        min: -2,
-        max: 2,
-        step: 0.01
-      },
-      rotation: {
-        label: 'Rotation',
-        value: 0,
-        min: -Math.PI,
-        max: Math.PI,
-        step: 0.01
-      },
-      scale: {
-        label: 'Scale',
-        value: 0.85,
-        min: 0,
-        max: 2,
-        step: 0.01
-      }
-    },
-    { collapsed: true, duration: 0.01 }
-  )
-
   const sceneLayers = useMemo(
     () =>
       Object.entries(reflections as Record<string, any>)
-        .filter(([k, v]) => /g\d+/.test(k) && typeof v !== 'undefined')
+        .filter(([k, v]) => /g\d+/.test(k) && v !== undefined)
         .reduce(
           (acc, [k, v]) => {
             const [k0, k1] = k.split('-')
             const idx = +k0.replace('g', '')
-
             acc[idx] = { ...acc[idx], [k1]: v }
-
             return acc
           },
           [] as Record<string, any>[]
@@ -264,178 +250,103 @@ function Inner() {
     [reflections]
   )
 
-  const geometry = gltf ? (
-    gltf.map(i => <bufferGeometry key={i.uuid} {...i} />)
-  ) : (
-    <>
-      {initGeometry === 'ring' && <Shapes.Ring />}
-      {initGeometry === 'disc' && <Shapes.Disc />}
-      {initGeometry === 'bar' && <Shapes.Bar />}
-      {initGeometry === 'arch' && <Shapes.Arch />}
-      {initGeometry === 'q' && <Shapes.Q />}
-    </>
-  )
-
-  const material = (
-    <meshBasicMaterial
-      color="#FFFDDD"
-      transparent
-      depthTest={false}
-      depthWrite={false}
-      onBeforeCompile={obcChain(obcAlpha, obcGradient)}
-      blending={blend ? THREE.AdditiveBlending : THREE.NormalBlending}
-      {...{ fragmentShader }}
-    />
-  )
+  const colorVec = useMemo(() => new THREE.Color(color), [color])
 
   const Layer = ({
     range = repetitions,
-    scalars: {
-      stepFactor,
-      scaleFactor,
-      rotationFactor,
-      alphaFactor,
-      scaleProgression,
-      rotationProgression
-    } = {},
-    ...args
-  }: LayerProps) => (
-    <Instances {...args}>
-      <InstancedAttribute name="opacity" defaultValue={0.01} />
-      {geometry}
-      {material}
+    scalars: s = {},
+    layerColor,
+    layerGeometry,
+    ...props
+  }: LayerProps) => {
+    const c = useMemo(() => new THREE.Color(layerColor ?? color), [layerColor])
+    const sf = s.scaleFactor ?? scalars.scaleFactor ?? 1
+    const rf = s.rotationFactor ?? scalars.rotationFactor ?? 0
+    const af = s.alphaFactor ?? scalars.alphaFactor ?? 1
+    const stf = s.stepFactor ?? scalars.stepFactor ?? 1
+    const sp = s.scaleProgression ?? scalars.scaleProgression ?? 'exponential'
+    const rp = s.rotationProgression ?? scalars.rotationProgression ?? 'linear'
+    const ap = s.alphaProgression ?? scalars.alphaProgression ?? 'exponential'
+    const pp = s.positionProgression ?? scalars.positionProgression ?? 'index'
+    const coupled = s.positionCoupled ?? scalars.positionCoupled ?? true
+    const geo = layerGeometry ?? geometry
 
-      {Array.from({ length: range }).map((_, i) => {
-        const getScaleValue = (i: number) => {
-          const factor = scaleFactor ?? scalars.scaleFactor ?? 1
-          const progression =
-            scaleProgression ?? scalars.scaleProgression ?? 'exponential'
+    return (
+      <Instances {...props}>
+        <InstancedAttribute name="opacity" defaultValue={1} />
+        <InstancedAttribute name="iColor" defaultValue={[1, 1, 1]} />
 
-          switch (progression) {
-            case 'linear':
-              return Math.max(0.01, 1 - i * 0.02)
-            case 'fibonacci': {
-              const phi = 1.618
-              const fibRatio = Math.abs(Math.sin(i * phi * 0.1))
-              return Math.pow(factor, i * fibRatio)
-            }
-            case 'golden':
-              return Math.pow(factor, i * (2 - 1.618))
-            case 'sine':
-              return Math.pow(
-                factor,
-                i * (0.3 + 0.7 * Math.abs(Math.sin(i * 0.2)))
-              )
-            default: // exponential
-              return Math.pow(factor, i)
-          }
-        }
+        <Geo shape={geo} gltf={gltf} />
 
-        const getRotationValue = (i: number) => {
-          const factor = rotationFactor ?? scalars.rotationFactor ?? 0
-          const progression =
-            rotationProgression ?? scalars.rotationProgression ?? 'linear'
+        <meshBasicMaterial
+          color={colorVec}
+          transparent
+          depthTest={false}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          onBeforeCompile={obcChain(obcInstanced, obcGradient)}
+        />
 
-          switch (progression) {
-            case 'golden-angle':
-              return 137.5 * factor * i // Golden angle in degrees
-            case 'fibonacci':
-              const fib = (n: number): number =>
-                n <= 1 ? n : fib(n - 1) + fib(n - 2)
-              return fib(i % 12) * factor * 15
-            case 'sine':
-              return Math.sin(i * 0.2) * factor * 180
-            default: // linear
-              return 360 * factor * (i + 1)
-          }
-        }
+        {Array.from({ length: range }, (_, i) => {
+          const sc = calcScale(i, sf, sp)
+          return (
+            <Instance
+              key={i}
+              scale={sc}
+              position={calcPosition(
+                i,
+                sc,
+                xStep,
+                yStep,
+                stf,
+                origin,
+                pp,
+                coupled,
+                !!gltf
+              )}
+              rotation={[0, 0, (calcRotation(i, rf, rp) * Math.PI) / 180]}
+              // @ts-expect-error custom attr
+              opacity={calcAlpha(i, range, af, ap)}
+              iColor={c.toArray()}
+            />
+          )
+        })}
+      </Instances>
+    )
+  }
 
-        const s = getScaleValue(i)
-
-        return (
-          <Instance
-            key={`instance-${i}`}
-            scale={s}
-            position={(() => {
-              let xs = xStep * (gltf ? 15 : 1)
-              let ys = yStep * (gltf ? 15 : 1)
-
-              xs *= s * 1.5
-              ys *= s * 1.5
-
-              let x = i * xs
-              let y = i * ys
-
-              if (/top/i.test(origin)) {
-                y = 1 - y
-              } else if (/bottom/i.test(origin)) {
-                y = -1 + y
-              }
-
-              if (/left/i.test(origin)) {
-                x = -1 + x
-              } else if (/right/i.test(origin)) {
-                x = 1 - x
-              }
-
-              return new THREE.Vector3(x, y, 0).multiplyScalar(
-                stepFactor ?? scalars?.stepFactor ?? 1
-              )
-            })()}
-            rotation={new THREE.Euler().setFromVector3(
-              new THREE.Vector3(0, 0, (getRotationValue(i) / 180) * Math.PI)
-            )}
-            // @ts-expect-error
-            opacity={Math.max(
-              0.02,
-              Math.exp(
-                -i * (1 - (alphaFactor ?? scalars?.alphaFactor ?? 1)) * 0.3
-              )
-            )}
-          />
-        )
-      })}
-    </Instances>
-  )
-
-  useEffect(() => void $object.set(undefined), [initGeometry])
+  useEffect(() => void $object.set(undefined), [geometry])
 
   return (
-    <group
-      position={[position.x, position.y, 0]}
-      scale={[scale, scale, 1]}
-      rotation={[0, 0, rotation]}>
+    <group scale={scale} rotation={[0, 0, rotation]}>
       {debug ? (
-        <mesh>
-          {geometry}
-
+        <mesh position={[position.x, position.y, 0]}>
+          <Geo shape={geometry} gltf={gltf} />
           <meshBasicMaterial />
         </mesh>
       ) : (
         <>
-          <TransformControls
+          <SyncedTransform
+            levaKey="Scene.position"
             enabled={transform}
-            showX={transform}
-            showY={transform}
-            showZ={false}
-            position={[0, 0, 0]}>
-            <Layer {...{ scalars }} />
-          </TransformControls>
+            position={[position.x, position.y, 0]}>
+            <Layer scalars={scalars} />
+          </SyncedTransform>
 
-          {sceneLayers.map((i, n) => (
-            <TransformControls
-              key={`g${n}`}
-              enabled={transform || i.transform}
-              showX={transform || i.transform}
-              showY={transform || i.transform}
-              showZ={false}
-              position={[i?.position?.x ?? 0, i?.position?.y ?? 0, 0]}>
+          {sceneLayers.map((layer, n) => (
+            <SyncedTransform
+              key={n}
+              levaKey={`Groups.g${n}.g${n}-position`}
+              enabled={transform || layer.transform}
+              position={[layer?.position?.x ?? 0, layer?.position?.y ?? 0, 0]}>
               <Layer
-                rotation={[0, 0, i?.rotation ?? 0]}
-                scale={[i?.scale?.x ?? 1, i?.scale?.y ?? 1, 1]}
-                scalars={i}
+                rotation={[0, 0, layer?.rotation ?? 0]}
+                scale={[layer?.scale?.x ?? 1, layer?.scale?.y ?? 1, 1]}
+                scalars={layer}
+                layerColor={layer?.color}
+                layerGeometry={layer?.geometry}
               />
-            </TransformControls>
+            </SyncedTransform>
           ))}
         </>
       )}
@@ -443,7 +354,7 @@ function Inner() {
   )
 }
 
-export default function Scene() {
+export default function Scene({ headless }: { headless?: boolean }) {
   useLinkableControls()
 
   return (
@@ -455,7 +366,8 @@ export default function Scene() {
         alpha: true,
         stencil: false,
         depth: false,
-        powerPreference: 'high-performance'
+        powerPreference: 'high-performance',
+        preserveDrawingBuffer: true
       }}>
       <Suspense fallback={<Loader />}>
         <Inner />
@@ -466,18 +378,7 @@ export default function Scene() {
       </EffectComposer>
 
       <Controls />
-      <Stats />
+      {!headless && <Stats />}
     </Canvas>
   )
-}
-
-interface LayerProps extends InstancesProps {
-  scalars?: {
-    stepFactor?: number
-    scaleFactor?: number
-    rotationFactor?: number
-    alphaFactor?: number
-    scaleProgression?: string
-    rotationProgression?: string
-  }
 }

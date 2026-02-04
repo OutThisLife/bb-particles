@@ -1,94 +1,94 @@
 import gsap from 'gsap'
-import { buttonGroup, useControls } from 'leva'
+import { buttonGroup, levaStore, useControls } from 'leva'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+
+type Options = Parameters<typeof useControls>[2] & {
+  duration?: number
+  onReset?: () => void
+  onRandomize?: () => void
+}
 
 export function useSmoothControls<T extends Record<string, any>>(
   label: string,
-  initialArgs: T,
-  options?: UseSmoothControlsOptions,
-  dependencies?: Parameters<typeof useControls>[3]
+  schema: T,
+  options?: Options,
+  deps?: any[]
 ) {
   type R = { [K in keyof T]: T[K] extends { value: infer V } ? V : never }
 
-  const entries = useMemo(
-    () => Object.entries(initialArgs ?? {}),
-    [initialArgs]
-  )
+  const entries = useMemo(() => Object.entries(schema ?? {}), [schema])
+  const values = entries.filter(([, v]) => !/button|folder/i.test(v?.type))
 
   const hydrate = useCallback(
     () =>
       Object.fromEntries(
-        entries.map(([k, v]) => {
-          if (v?.schema) {
-            return Object.entries(v.schema).map(([k0, v0]: [string, any]) => [
-              k0,
-              'value' in v0 ? v0.value : v0
-            ])
-          }
-
-          return [k, 'value' in v ? v.value : v]
-        })
+        entries.map(([k, v]) =>
+          v?.schema
+            ? Object.entries(v.schema).map(([k0, v0]: [string, any]) => [
+                k0,
+                'value' in v0 ? v0.value : v0
+              ])
+            : [k, 'value' in v ? v.value : v]
+        )
       ) as R,
     [entries]
   )
 
   const [args, update] = useState<R>(hydrate)
-  const values = entries.filter(([, v]) => !/button|folder/i.test(v?.type))
 
   useEffect(() => {
-    const curKeys = Object.keys(args)
-    const nextKeys = Object.keys(initialArgs)
+    if (Object.keys(args).length !== Object.keys(schema).length) update(hydrate)
+  }, [schema, args, hydrate])
 
-    if (curKeys.length !== nextKeys.length) {
-      update(hydrate)
+  // Sync with leva store when values change externally (e.g. URL hydration)
+  const storeData = levaStore.useStore(s => s.data)
+  useEffect(() => {
+    const synced: Partial<R> = {}
+    for (const [k] of entries) {
+      const key = `${label}.${k}`
+      const storeVal = storeData[key]?.value
+      if (storeVal !== undefined && storeVal !== args[k as keyof R]) {
+        synced[k as keyof R] = storeVal
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialArgs, args])
+    if (Object.keys(synced).length) update(s => ({ ...s, ...synced }))
+  }, [storeData, label, entries])
 
   const [, set] = useControls(
-    label ?? 'Group',
+    label,
     () => ({
       ...Object.fromEntries(
         entries.map(([k, v]) => {
-          const onChange = (e: any, k0?: string) => {
-            const key = k0?.split('.')?.pop() ?? k
+          const onChange = (e: any, path?: string) => {
+            const key = path?.split('.')?.pop() ?? k
 
-            if (typeof e === 'number' && args[key] !== e) {
-              gsap.to(args, {
-                [key]: e,
-                duration: options?.duration ?? 0.35,
-                ease: 'circ.out',
-                onUpdate: () => update(st => ({ ...st, [key]: args[key] }))
-              })
-            } else {
-              update(st => ({ ...st, [key]: e }))
-            }
+            typeof e === 'number' && args[key] !== e
+              ? gsap.to(args, {
+                  [key]: e,
+                  duration: options?.duration ?? 0.35,
+                  ease: 'circ.out',
+                  onUpdate: () => update(s => ({ ...s, [key]: args[key] }))
+                })
+              : update(s => ({ ...s, [key]: e }))
           }
 
-          if (v?.schema) {
-            return [
-              k,
-              {
-                ...v,
-                schema: Object.fromEntries(
-                  Object.entries(v.schema).map(([k, v]) => [
-                    k,
-                    { ...v!, onChange }
-                  ])
-                )
-              }
-            ]
-          }
-
-          return [
-            k,
-            {
-              ...v,
-              onChange
-            }
-          ]
+          return v?.schema
+            ? [
+                k,
+                {
+                  ...v,
+                  schema: Object.fromEntries(
+                    Object.entries(v.schema).map(([k, v]) => [
+                      k,
+                      { ...v!, onChange }
+                    ])
+                  )
+                }
+              ]
+            : [k, { ...v, onChange }]
         })
       ),
+
       ' ': buttonGroup({
         randomize: () => {
           set(
@@ -101,26 +101,18 @@ export function useSmoothControls<T extends Record<string, any>>(
               ])
             )
           )
-
           options?.onRandomize?.()
         },
         reset: () => {
           set(Object.fromEntries(values.map(([k, { value: v }]) => [k, v])))
-
           options?.onReset?.()
         },
         flatten: () => set(Object.fromEntries(values.map(([k]) => [k, 0])))
       })
     }),
     options,
-    dependencies ?? []
+    deps ?? []
   )
 
   return args
-}
-
-type UseSmoothControlsOptions = Parameters<typeof useControls>[2] & {
-  duration?: number
-  onReset?: () => void
-  onRandomize?: () => void
 }

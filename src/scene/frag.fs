@@ -1,36 +1,16 @@
-uniform float uTime;
-uniform sampler2D tDiffuse;
-uniform sampler2D uShadowMap;
-uniform vec2 uResolution;
+uniform vec3 uColor;
 
 #ifndef saturate
 #define saturate(x) clamp(x, 0., 1.)
 #endif
 
-in float vAlpha;
-in vec2 vUv;
-in vec3 vPosition;
-
-out vec4 fragColor;
+varying float vOpacity;
+varying vec3 vPosition;
 
 void main() {
-  vec2 st = gl_FragCoord.xy / uResolution;
-  float alpha = 1. - smoothstep(.1, .5, length(st - .5));
-  alpha = vAlpha;
+  if (vOpacity < 0.01) discard;
 
-  vec4 col = vec4(vec3(1, .98, .7), alpha);
+  vec3 col = uColor * (1. - length(vPosition - .5) * 3.);
 
-  col.rgb *= 1. - length(vPosition - .5) * 3.;
-
-  if (alpha < 0.01) {
-    discard;
-  }
-
-#ifndef DEPTH_PASS
-  col.rgb *= texture(tDiffuse, gl_PointCoord / uResolution).r;
-#endif
-
-  col.rgb = vec3(1, 0, 0);
-
-  fragColor = saturate(col);
+  gl_FragColor = saturate(vec4(col, vOpacity));
 }
