@@ -177,6 +177,29 @@ export type LayerParams = {
   geometry?: string
 }
 
+export const DEFAULT_PARAMS: SceneParams = {
+  geometry: 'ring',
+  color: '#FFFDDD',
+  repetitions: 65,
+  alphaFactor: 0.65,
+  scaleFactor: 1.05,
+  rotationFactor: 0,
+  stepFactor: 0.02,
+  scaleProgression: 'exponential',
+  rotationProgression: 'linear',
+  alphaProgression: 'exponential',
+  positionProgression: 'index',
+  positionCoupled: true,
+  origin: 'top-center',
+  xStep: -1.5,
+  yStep: 0,
+  debug: false,
+  position: { x: 0, y: -0.5 },
+  rotation: 0,
+  scale: 0.85,
+  layers: [{ position: { x: 0, y: 0 }, rotation: 0, scale: { x: -1, y: 1 } }]
+}
+
 // Convert decoded leva data to flat SceneParams
 export const toSceneParams = (
   data: Record<string, EncodedEntry>
@@ -209,25 +232,25 @@ export const toSceneParams = (
   }
 
   return {
-    geometry: get('Element.geometry', 'ring'),
-    color: get('Element.color', '#FFFDDD'),
-    repetitions: get('Scalars.repetitions', 65),
-    alphaFactor: get('Scalars.alphaFactor', 0.65),
-    scaleFactor: get('Scalars.scaleFactor', 1.05),
-    rotationFactor: get('Scalars.rotationFactor', 0),
-    stepFactor: get('Scalars.stepFactor', 0.02),
-    scaleProgression: get('Scalars.scaleProgression', 'exponential'),
-    rotationProgression: get('Scalars.rotationProgression', 'linear'),
-    alphaProgression: get('Scalars.alphaProgression', 'exponential'),
-    positionProgression: get('Scalars.positionProgression', 'index'),
-    positionCoupled: get('Scalars.positionCoupled', true),
-    origin: get('Spatial.origin', 'top-center'),
-    xStep: get('Spatial.xStep', -1.5),
-    yStep: get('Spatial.yStep', 0),
-    debug: get('Scene.debug', false),
-    position: get('Scene.position', { x: 0, y: -0.5 }),
-    rotation: get('Scene.rotation', 0),
-    scale: get('Scene.scale', 0.85),
+    geometry: get('Element.geometry', DEFAULT_PARAMS.geometry),
+    color: get('Element.color', DEFAULT_PARAMS.color),
+    repetitions: get('Scalars.repetitions', DEFAULT_PARAMS.repetitions),
+    alphaFactor: get('Scalars.alphaFactor', DEFAULT_PARAMS.alphaFactor),
+    scaleFactor: get('Scalars.scaleFactor', DEFAULT_PARAMS.scaleFactor),
+    rotationFactor: get('Scalars.rotationFactor', DEFAULT_PARAMS.rotationFactor),
+    stepFactor: get('Scalars.stepFactor', DEFAULT_PARAMS.stepFactor),
+    scaleProgression: get('Scalars.scaleProgression', DEFAULT_PARAMS.scaleProgression),
+    rotationProgression: get('Scalars.rotationProgression', DEFAULT_PARAMS.rotationProgression),
+    alphaProgression: get('Scalars.alphaProgression', DEFAULT_PARAMS.alphaProgression),
+    positionProgression: get('Scalars.positionProgression', DEFAULT_PARAMS.positionProgression),
+    positionCoupled: get('Scalars.positionCoupled', DEFAULT_PARAMS.positionCoupled),
+    origin: get('Spatial.origin', DEFAULT_PARAMS.origin),
+    xStep: get('Spatial.xStep', DEFAULT_PARAMS.xStep),
+    yStep: get('Spatial.yStep', DEFAULT_PARAMS.yStep),
+    debug: get('Scene.debug', DEFAULT_PARAMS.debug),
+    position: get('Scene.position', DEFAULT_PARAMS.position),
+    rotation: get('Scene.rotation', DEFAULT_PARAMS.rotation),
+    scale: get('Scene.scale', DEFAULT_PARAMS.scale),
     layers
   }
 }
