@@ -173,6 +173,17 @@ export const decode = (str: string): Record<string, EncodedEntry> => {
 }
 
 // Flat params for headless rendering (no leva structure)
+export type DitherParams = {
+  enabled: boolean
+  type: string
+  matrix: number
+  colors: number
+  strength: number
+  scale: number
+  bias: number
+  grayscale: boolean
+}
+
 export type SceneParams = {
   geometry: string
   color: string
@@ -194,6 +205,7 @@ export type SceneParams = {
   rotation: number
   scale: number
   layers: LayerParams[]
+  dither: DitherParams
 }
 
 export type LayerParams = {
@@ -208,11 +220,23 @@ export type LayerParams = {
   geometry?: string
 }
 
+export const DEFAULT_DITHER: DitherParams = {
+  bias: 0.57,
+  colors: 6,
+  enabled: false,
+  grayscale: false,
+  matrix: 4,
+  scale: 8,
+  strength: 0.78,
+  type: 'bayer'
+}
+
 export const DEFAULT_PARAMS: SceneParams = {
   alphaFactor: 0.65,
   alphaProgression: 'exponential',
   color: '#FFFDDD',
   debug: false,
+  dither: DEFAULT_DITHER,
   geometry: 'ring',
   layers: [{ position: { x: 0, y: 0 }, rotation: 0, scale: { x: -1, y: 1 } }],
   origin: 'top-center',
@@ -231,48 +255,141 @@ export const DEFAULT_PARAMS: SceneParams = {
   yStep: 0
 }
 
+// Convert flat SceneParams back to leva format for encoding
+export const fromSceneParams = (
+  params: Partial<SceneParams>
+): Record<string, EncodedEntry> => {
+  const result: Record<string, EncodedEntry> = {}
+
+  const set = (key: string, value: any) => {
+    if (value !== undefined) {
+      result[key] = { value }
+    }
+  }
+
+  set('Element.geometry', params.geometry)
+  set('Element.color', params.color)
+  set('Scalars.repetitions', params.repetitions)
+  set('Scalars.alphaFactor', params.alphaFactor)
+  set('Scalars.scaleFactor', params.scaleFactor)
+  set('Scalars.rotationFactor', params.rotationFactor)
+  set('Scalars.stepFactor', params.stepFactor)
+  set('Scalars.scaleProgression', params.scaleProgression)
+  set('Scalars.rotationProgression', params.rotationProgression)
+  set('Scalars.alphaProgression', params.alphaProgression)
+  set('Scalars.positionProgression', params.positionProgression)
+  set('Scalars.positionCoupled', params.positionCoupled)
+  set('Spatial.origin', params.origin)
+  set('Spatial.xStep', params.xStep)
+  set('Spatial.yStep', params.yStep)
+  set('Scene.debug', params.debug)
+  set('Scene.position', params.position)
+  set('Scene.rotation', params.rotation)
+  set('Scene.scale', params.scale)
+
+  // Dither params
+  if (params.dither) {
+    set('Dither.enabled', params.dither.enabled)
+    set('Dither.type', params.dither.type)
+    set('Dither.matrix', params.dither.matrix)
+    set('Dither.colors', params.dither.colors)
+    set('Dither.strength', params.dither.strength)
+    set('Dither.scale', params.dither.scale)
+    set('Dither.bias', params.dither.bias)
+    set('Dither.grayscale', params.dither.grayscale)
+  }
+
+  params.layers?.forEach((layer, i) => {
+    const pre = `Groups.g${i}.g${i}-`
+    set(`${pre}position`, layer.position)
+    set(`${pre}rotation`, layer.rotation)
+    set(`${pre}scale`, layer.scale)
+
+    if (layer.stepFactor !== undefined) {
+      result[`${pre}stepFactor`] = { disabled: false, value: layer.stepFactor }
+    }
+
+    if (layer.alphaFactor !== undefined) {
+      result[`${pre}alphaFactor`] = {
+        disabled: false,
+        value: layer.alphaFactor
+      }
+    }
+
+    if (layer.scaleFactor !== undefined) {
+      result[`${pre}scaleFactor`] = {
+        disabled: false,
+        value: layer.scaleFactor
+      }
+    }
+
+    if (layer.rotationFactor !== undefined) {
+      result[`${pre}rotationFactor`] = {
+        disabled: false,
+        value: layer.rotationFactor
+      }
+    }
+
+    if (layer.color !== undefined) {
+      result[`${pre}color`] = { disabled: false, value: layer.color }
+    }
+
+    if (layer.geometry !== undefined) {
+      result[`${pre}geometry`] = { disabled: false, value: layer.geometry }
+    }
+  })
+
+  return result
+}
+
 // Convert decoded leva data to flat SceneParams
 export const toSceneParams = (
   data: Record<string, EncodedEntry>
 ): SceneParams => {
   const get = <T>(key: string, def: T): T => (data[key]?.value as T) ?? def
 
-  // Extract layers from g0, g1, etc.
+  // Extract layers from Groups.g0.g0-*, Groups.g1.g1-*, etc.
   const layers: LayerParams[] = []
   let i = 0
 
-  while (data[`g${i}-position`] || data[`g${i}-scale`]) {
+  while (true) {
+    const pre = `Groups.g${i}.g${i}-`
+
+    if (!data[`${pre}position`] && !data[`${pre}scale`]) {
+      break
+    }
+
     const layer: LayerParams = {
-      position: get(`g${i}-position`, { x: 0, y: 0 }),
-      rotation: get(`g${i}-rotation`, 0),
-      scale: get(`g${i}-scale`, { x: -1, y: 1 })
+      position: get(`${pre}position`, { x: 0, y: 0 }),
+      rotation: get(`${pre}rotation`, 0),
+      scale: get(`${pre}scale`, { x: -1, y: 1 })
     }
 
-    if (data[`g${i}-stepFactor`] && !data[`g${i}-stepFactor`].disabled) {
-      layer.stepFactor = data[`g${i}-stepFactor`].value
+    if (data[`${pre}stepFactor`] && !data[`${pre}stepFactor`].disabled) {
+      layer.stepFactor = data[`${pre}stepFactor`].value
     }
 
-    if (data[`g${i}-alphaFactor`] && !data[`g${i}-alphaFactor`].disabled) {
-      layer.alphaFactor = data[`g${i}-alphaFactor`].value
+    if (data[`${pre}alphaFactor`] && !data[`${pre}alphaFactor`].disabled) {
+      layer.alphaFactor = data[`${pre}alphaFactor`].value
     }
 
-    if (data[`g${i}-scaleFactor`] && !data[`g${i}-scaleFactor`].disabled) {
-      layer.scaleFactor = data[`g${i}-scaleFactor`].value
+    if (data[`${pre}scaleFactor`] && !data[`${pre}scaleFactor`].disabled) {
+      layer.scaleFactor = data[`${pre}scaleFactor`].value
     }
 
     if (
-      data[`g${i}-rotationFactor`] &&
-      !data[`g${i}-rotationFactor`].disabled
+      data[`${pre}rotationFactor`] &&
+      !data[`${pre}rotationFactor`].disabled
     ) {
-      layer.rotationFactor = data[`g${i}-rotationFactor`].value
+      layer.rotationFactor = data[`${pre}rotationFactor`].value
     }
 
-    if (data[`g${i}-color`] && !data[`g${i}-color`].disabled) {
-      layer.color = data[`g${i}-color`].value
+    if (data[`${pre}color`] && !data[`${pre}color`].disabled) {
+      layer.color = data[`${pre}color`].value
     }
 
-    if (data[`g${i}-geometry`] && !data[`g${i}-geometry`].disabled) {
-      layer.geometry = data[`g${i}-geometry`].value
+    if (data[`${pre}geometry`] && !data[`${pre}geometry`].disabled) {
+      layer.geometry = data[`${pre}geometry`].value
     }
 
     layers.push(layer)
@@ -287,6 +404,16 @@ export const toSceneParams = (
     ),
     color: get('Element.color', DEFAULT_PARAMS.color),
     debug: get('Scene.debug', DEFAULT_PARAMS.debug),
+    dither: {
+      bias: get('Dither.bias', DEFAULT_DITHER.bias),
+      colors: get('Dither.colors', DEFAULT_DITHER.colors),
+      enabled: get('Dither.enabled', DEFAULT_DITHER.enabled),
+      grayscale: get('Dither.grayscale', DEFAULT_DITHER.grayscale),
+      matrix: get('Dither.matrix', DEFAULT_DITHER.matrix),
+      scale: get('Dither.scale', DEFAULT_DITHER.scale),
+      strength: get('Dither.strength', DEFAULT_DITHER.strength),
+      type: get('Dither.type', DEFAULT_DITHER.type)
+    },
     geometry: get('Element.geometry', DEFAULT_PARAMS.geometry),
     layers,
     origin: get('Spatial.origin', DEFAULT_PARAMS.origin),

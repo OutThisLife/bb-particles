@@ -11,7 +11,6 @@ import {
   TransformControls
 } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
-import { EffectComposer, SMAA } from '@react-three/postprocessing'
 import { button, folder, levaStore, useControls } from 'leva'
 import React, { Suspense, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
@@ -30,6 +29,7 @@ import {
 } from '@/utils'
 
 import { Controls } from './Controls'
+import Effects from './Effects'
 import { Geo, SHAPES } from './Shapes'
 
 const ORIGINS = [
@@ -360,6 +360,12 @@ function Inner() {
   )
 }
 
+declare global {
+  interface Window {
+    __RENDER_READY__?: boolean
+  }
+}
+
 export const Scene = ({ headless }: { headless?: boolean }) => {
   useLinkableControls()
 
@@ -373,6 +379,11 @@ export const Scene = ({ headless }: { headless?: boolean }) => {
         preserveDrawingBuffer: true,
         stencil: false
       }}
+      onCreated={() => {
+        requestAnimationFrame(() => {
+          window.__RENDER_READY__ = true
+        })
+      }}
       orthographic
       style={{ height: '100svh', width: '100svw' }}
     >
@@ -380,10 +391,7 @@ export const Scene = ({ headless }: { headless?: boolean }) => {
         <Inner />
       </Suspense>
 
-      <EffectComposer multisampling={0}>
-        <SMAA />
-      </EffectComposer>
-
+      <Effects />
       <Controls />
       {!headless && <Stats />}
     </Canvas>
