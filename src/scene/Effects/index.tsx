@@ -1,12 +1,14 @@
 import { extend, useFrame, useThree } from '@react-three/fiber'
-import { useControls } from 'leva'
 import { useEffect, useMemo, useRef } from 'react'
 import { EffectComposer, RenderPass } from 'three/examples/jsm/Addons.js'
 
+import { useSmoothControls } from '@/hooks/useSmoothControls'
+
 import type { DitherType, MatrixSize } from './DitherPass'
 import { DitherPass } from './DitherPass'
+import { NoisePass } from './NoisePass'
 
-extend({ DitherPass, EffectComposer, RenderPass })
+extend({ DitherPass, EffectComposer, NoisePass, RenderPass })
 
 const DITHER_TYPES: DitherType[] = [
   'bayer',
@@ -21,26 +23,30 @@ const MATRIX_SIZES: MatrixSize[] = [2, 4, 8]
 export default function Effects() {
   const { camera, gl, scene, size } = useThree()
   const ditherRef = useRef<DitherPass>(null!)
+  const noiseRef = useRef<NoisePass>(null!)
 
-  const dither = useControls(
+  const dither = useSmoothControls(
     'Dither',
     {
-      bias: { label: 'Bias', max: 1, min: 0, step: 0.01, value: 0.57 },
-      colors: { label: 'Colors', max: 32, min: 2, step: 1, value: 6 },
-      enabled: { label: 'Enabled', value: false },
-      grayscale: { label: 'Grayscale', value: false },
-      matrix: {
-        label: 'Matrix',
-        options: MATRIX_SIZES,
-        value: 4 as MatrixSize
-      },
-      scale: { label: 'Scale', max: 8, min: 0.25, step: 0.25, value: 8 },
-      strength: { label: 'Strength', max: 1, min: 0, step: 0.01, value: 0.78 },
-      type: {
-        label: 'Type',
-        options: DITHER_TYPES,
-        value: 'bayer' as DitherType
-      }
+      bias: { max: 1, min: 0, step: 0.01, value: 0.57 },
+      colors: { max: 32, min: 2, step: 1, value: 6 },
+      enabled: { value: false },
+      grayscale: { value: false },
+      matrix: { options: MATRIX_SIZES, value: 4 as MatrixSize },
+      scale: { max: 8, min: 0.25, step: 0.25, value: 8 },
+      strength: { max: 1, min: 0, step: 0.01, value: 0.78 },
+      type: { options: DITHER_TYPES, value: 'bayer' as DitherType }
+    },
+    { collapsed: true }
+  )
+
+  const noise = useSmoothControls(
+    'Noise',
+    {
+      density: { max: 1, min: 0, step: 0.01, value: 0.11 },
+      enabled: { value: false },
+      opacity: { max: 1, min: 0, step: 0.01, value: 0.55 },
+      size: { max: 3, min: 0.1, step: 0.1, value: 1 }
     },
     { collapsed: true }
   )
@@ -63,6 +69,16 @@ export default function Effects() {
     ditherRef.current = ditherPass
     composer.addPass(ditherPass)
 
+    const noisePass = new NoisePass({
+      density: noise.density,
+      opacity: noise.opacity,
+      size: noise.size
+    })
+
+    noisePass.enabled = noise.enabled
+    noiseRef.current = noisePass
+    composer.addPass(noisePass)
+
     return composer
   }, [gl, scene, camera])
 
@@ -71,6 +87,7 @@ export default function Effects() {
     if (!ditherRef.current) {
       return
     }
+
     ditherRef.current.enabled = dither.enabled
     ditherRef.current.strength = dither.strength
     ditherRef.current.colorDepth = dither.colors
@@ -80,6 +97,18 @@ export default function Effects() {
     ditherRef.current.ditherType = dither.type
     ditherRef.current.grayscale = dither.grayscale
   }, [dither])
+
+  // Sync noise controls
+  useEffect(() => {
+    if (!noiseRef.current) {
+      return
+    }
+
+    noiseRef.current.enabled = noise.enabled
+    noiseRef.current.size = noise.size
+    noiseRef.current.density = noise.density
+    noiseRef.current.opacity = noise.opacity
+  }, [noise])
 
   // Resize handling
   useEffect(() => {

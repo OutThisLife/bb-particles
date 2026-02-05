@@ -26,6 +26,7 @@ async function getBrowser() {
       const page = await browser.newPage({
         viewport: { height: 1024, width: 1024 }
       })
+
       pagePool.push(page)
     }
   }

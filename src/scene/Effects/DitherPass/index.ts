@@ -158,6 +158,7 @@ export class DitherPass extends Pass {
       if (this.clear) {
         renderer.clear()
       }
+
       this.fsQuad.render(renderer)
     }
   }
