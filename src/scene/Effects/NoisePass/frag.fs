@@ -18,7 +18,8 @@ vec3 blendColorDodge(vec3 base, vec3 blend) {
 
 void main() {
   vec4 tex = texture2D(tDiffuse, vUv);
-  float n = hash(floor(vUv * resolution / size));
+  float s = size * (resolution.x / 1024.0);
+  float n = hash(floor(vUv * resolution / s));
   float mask = step(1.0 - density, n) * opacity;
   vec3 blended = blendColorDodge(tex.rgb, vec3(n));
   gl_FragColor = vec4(mix(tex.rgb, blended, mask), tex.a);

@@ -10,6 +10,10 @@ uniform vec2 resolution;
 
 in vec2 vUv;
 
+// Scale-independent: patterns look the same at any resolution
+const float REF_RES = 1024.0;
+float resScale() { return resolution.x / REF_RES; }
+
 // Bayer matrices
 const float bayer2[4] = float[4](0.0, 2.0, 3.0, 1.0);
 
@@ -47,7 +51,7 @@ float interleavedGradientNoise(vec2 pos) {
 
 // Proper halftone - circular dots sized by luminance
 float halftone(vec2 uv, float lum) {
-  float cellSize = patternScale * 4.0;
+  float cellSize = patternScale * resScale() * 4.0;
   vec2 cellUv = fract(uv * resolution / cellSize) - 0.5;
   float dist = length(cellUv);
   float radius = (1.0 - lum) * 0.5;
@@ -56,7 +60,7 @@ float halftone(vec2 uv, float lum) {
 
 // Crosshatch - multiple line layers based on luminance
 float crosshatch(vec2 uv, float lum) {
-  float scale = patternScale * 6.0;
+  float scale = patternScale * resScale() * 6.0;
   vec2 p = uv * resolution / scale;
 
   float line1 = abs(sin((p.x + p.y) * 3.14159));
@@ -86,13 +90,14 @@ float whiteNoise(vec2 pos) {
 }
 
 float getDitherThreshold(vec2 uv) {
-  vec2 pos = uv * resolution / patternScale;
+  float s = patternScale * resScale();
+  vec2 pos = uv * resolution / s;
   ivec2 ipos = ivec2(floor(pos));
 
   if (ditherType == 0) {
     return getBayerValue(ipos);
   } else if (ditherType == 1) {
-    return interleavedGradientNoise(floor(uv * resolution / patternScale));
+    return interleavedGradientNoise(floor(uv * resolution / s));
   } else if (ditherType == 4) {
     return whiteNoise(pos);
   }
