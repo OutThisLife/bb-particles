@@ -35,6 +35,7 @@ function Layer({ gltf, o, p, ...rest }: LayerProps) {
   const stf = o?.stepFactor ?? p.stepFactor
   const geo = o?.geometry ?? p.geometry
   const col = o?.color ?? p.color
+  const w = o?.geoWidth ?? p.geoWidth
 
   const color = useMemo(() => new THREE.Color(col), [col])
 
@@ -43,7 +44,7 @@ function Layer({ gltf, o, p, ...rest }: LayerProps) {
       <InstancedAttribute defaultValue={1} name="opacity" />
       <InstancedAttribute defaultValue={[1, 1, 1]} name="iColor" />
 
-      <Geo gltf={gltf} shape={geo} />
+      <Geo gltf={gltf} shape={geo} width={w} />
 
       <meshBasicMaterial
         blending={THREE.AdditiveBlending}
@@ -103,7 +104,7 @@ export const SceneCore = ({ params: p }: { params: SceneParams }) => {
         scale={p.scale}
       >
         <mesh>
-          <Geo gltf={gltf} shape={p.geometry} />
+          <Geo gltf={gltf} shape={p.geometry} width={p.geoWidth} />
           <meshBasicMaterial />
         </mesh>
       </group>

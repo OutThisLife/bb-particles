@@ -15,7 +15,10 @@ import { button, folder, levaStore, useControls } from 'leva'
 import React, { Suspense, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 
-import useLinkableControls from '@/hooks/useLinkableControls'
+import useLinkableControls, {
+  initDisabled,
+  initVal
+} from '@/hooks/useLinkableControls'
 import { useSmoothControls } from '@/hooks/useSmoothControls'
 import { $layers, $object } from '@/store'
 import {
@@ -82,36 +85,44 @@ interface LayerProps extends InstancesProps {
   scalars?: Record<string, any>
   layerColor?: string
   layerGeometry?: string
+  layerGeoWidth?: number
 }
 
 function Inner() {
   const gltf = useStore($object)
   const layers = useStore($layers)
 
-  const { color, geometry } = useSmoothControls(
+  const { color, geometry, geoWidth } = useSmoothControls(
     'Element',
     {
-      color: { label: 'Color', value: '#FFFDDD' },
-      geometry: { label: 'Shape', options: [...SHAPES], value: 'ring' }
+      color: { label: 'Color', value: '#efeddb' },
+      geometry: { label: 'Shape', options: [...SHAPES], value: 'ring' },
+      geoWidth: {
+        label: 'Width',
+        max: 0.1,
+        min: 0.001,
+        step: 0.001,
+        value: 0.041
+      }
     },
     { duration: 0.01 }
   )
 
   const { repetitions, ...scalars } = useSmoothControls('Scalars', {
-    alphaFactor: { max: 1, min: 0, step: 0.01, value: 0.65 },
+    alphaFactor: { max: 1, min: 0, step: 0.01, value: 0.68 },
     alphaProgression: {
       options: ['exponential', 'linear', 'inverse'],
       value: 'exponential'
     },
     positionCoupled: { value: true },
     positionProgression: { options: ['index', 'scale'], value: 'index' },
-    repetitions: { max: 500, min: 1, step: 1, value: 65 },
-    rotationFactor: { max: 1, min: -1, step: 0.01, value: 0 },
+    repetitions: { max: 500, min: 1, step: 1, value: 75 },
+    rotationFactor: { max: 1, min: -1, step: 0.01, value: -0.48 },
     rotationProgression: {
       options: ['linear', 'golden-angle', 'fibonacci', 'sine'],
       value: 'linear'
     },
-    scaleFactor: { max: 2, min: 0, step: 0.01, value: 1.05 },
+    scaleFactor: { max: 2, min: 0, step: 0.01, value: 1.03 },
     scaleProgression: {
       options: [
         'linear',
@@ -138,7 +149,7 @@ function Inner() {
       debug: { value: false },
       position: { max: 2, min: -2, step: 0.01, value: { x: 0, y: -0.5 } },
       rotation: { max: Math.PI, min: -Math.PI, step: 0.01, value: 0 },
-      scale: { max: 2, min: 0, step: 0.01, value: 0.85 },
+      scale: { max: 2, min: 0, step: 0.01, value: 0.4 },
       transform: { value: false }
     },
     { collapsed: true, duration: 0.01 }
@@ -155,74 +166,86 @@ function Inner() {
             folder(
               {
                 [`g${i}-alphaFactor`]: {
-                  disabled: true,
+                  disabled: initDisabled(`Groups.g${i}.g${i}-alphaFactor`),
                   label: 'alphaFactor',
                   max: 1,
                   min: 0,
                   optional: true,
                   step: 0.01,
-                  value: 0.65
+                  value: initVal(`Groups.g${i}.g${i}-alphaFactor`, 0.65)
                 },
                 [`g${i}-color`]: {
-                  disabled: true,
+                  disabled: initDisabled(`Groups.g${i}.g${i}-color`),
                   label: 'color',
                   optional: true,
-                  value: '#FFFDDD'
+                  value: initVal(`Groups.g${i}.g${i}-color`, '#FFFDDD')
                 },
                 [`g${i}-geometry`]: {
-                  disabled: true,
+                  disabled: initDisabled(`Groups.g${i}.g${i}-geometry`),
                   label: 'Shape',
                   optional: true,
                   options: [...SHAPES],
-                  value: 'ring'
+                  value: initVal(`Groups.g${i}.g${i}-geometry`, 'ring')
+                },
+                [`g${i}-geoWidth`]: {
+                  disabled: initDisabled(`Groups.g${i}.g${i}-geoWidth`),
+                  label: 'Width',
+                  max: 0.1,
+                  min: 0.001,
+                  optional: true,
+                  step: 0.001,
+                  value: initVal(`Groups.g${i}.g${i}-geoWidth`, 0.041)
                 },
                 [`g${i}-position`]: {
                   label: 'Position',
                   max: 2,
                   min: -2,
                   step: 0.01,
-                  value: { x: 0, y: 0 }
+                  value: initVal(`Groups.g${i}.g${i}-position`, {
+                    x: -0.003,
+                    y: -0.462
+                  })
                 },
                 [`g${i}-rotation`]: {
                   label: 'Rotation',
                   max: Math.PI,
                   min: -Math.PI,
                   step: 0.01,
-                  value: 0
+                  value: initVal(`Groups.g${i}.g${i}-rotation`, 0)
                 },
                 [`g${i}-rotationFactor`]: {
-                  disabled: true,
+                  disabled: initDisabled(`Groups.g${i}.g${i}-rotationFactor`),
                   label: 'rotationFactor',
                   max: 1,
                   min: -1,
                   optional: true,
                   step: 0.01,
-                  value: 0
+                  value: initVal(`Groups.g${i}.g${i}-rotationFactor`, 0)
                 },
                 [`g${i}-scale`]: {
                   label: 'Scale',
                   max: 2,
                   min: -2,
                   step: 0.01,
-                  value: { x: -1, y: 1 }
+                  value: initVal(`Groups.g${i}.g${i}-scale`, { x: -1, y: 1 })
                 },
                 [`g${i}-scaleFactor`]: {
-                  disabled: true,
+                  disabled: initDisabled(`Groups.g${i}.g${i}-scaleFactor`),
                   label: 'scaleFactor',
                   max: 2,
                   min: 0,
                   optional: true,
                   step: 0.01,
-                  value: 1.05
+                  value: initVal(`Groups.g${i}.g${i}-scaleFactor`, 1.05)
                 },
                 [`g${i}-stepFactor`]: {
-                  disabled: true,
+                  disabled: initDisabled(`Groups.g${i}.g${i}-stepFactor`),
                   label: 'stepFactor',
                   max: 2,
                   min: 0,
                   optional: true,
                   step: 0.01,
-                  value: 0.13
+                  value: initVal(`Groups.g${i}.g${i}-stepFactor`, 0.13)
                 },
                 [`g${i}-transform`]: { label: 'Transform', value: false },
                 [`remove-g${i}`]: button(() => $layers.set($layers.get() - 1))
@@ -258,6 +281,7 @@ function Inner() {
   const Layer = ({
     layerColor,
     layerGeometry,
+    layerGeoWidth,
     range = repetitions,
     scalars: s = {},
     ...props
@@ -273,13 +297,14 @@ function Inner() {
     const pp = s.positionProgression ?? scalars.positionProgression ?? 'index'
     const coupled = s.positionCoupled ?? scalars.positionCoupled ?? true
     const geo = layerGeometry ?? geometry
+    const w = layerGeoWidth ?? geoWidth
 
     return (
       <Instances {...props}>
         <InstancedAttribute defaultValue={1} name="opacity" />
         <InstancedAttribute defaultValue={[1, 1, 1]} name="iColor" />
 
-        <Geo gltf={gltf} shape={geo} />
+        <Geo gltf={gltf} shape={geo} width={w} />
 
         <meshBasicMaterial
           blending={THREE.AdditiveBlending}
@@ -325,7 +350,7 @@ function Inner() {
     <group rotation={[0, 0, rotation]} scale={scale}>
       {debug ? (
         <mesh position={[position.x, position.y, 0]}>
-          <Geo gltf={gltf} shape={geometry} />
+          <Geo gltf={gltf} shape={geometry} width={geoWidth} />
           <meshBasicMaterial />
         </mesh>
       ) : (
@@ -333,8 +358,7 @@ function Inner() {
           <SyncedTransform
             enabled={transform}
             levaKey="Scene.position"
-            position={[position.x, position.y, 0]}
-          >
+            position={[position.x, position.y, 0]}>
             <Layer scalars={scalars} />
           </SyncedTransform>
 
@@ -343,11 +367,11 @@ function Inner() {
               enabled={transform || layer.transform}
               key={n}
               levaKey={`Groups.g${n}.g${n}-position`}
-              position={[layer?.position?.x ?? 0, layer?.position?.y ?? 0, 0]}
-            >
+              position={[layer?.position?.x ?? 0, layer?.position?.y ?? 0, 0]}>
               <Layer
                 layerColor={layer?.color}
                 layerGeometry={layer?.geometry}
+                layerGeoWidth={layer?.geoWidth}
                 rotation={[0, 0, layer?.rotation ?? 0]}
                 scalars={layer}
                 scale={[layer?.scale?.x ?? 1, layer?.scale?.y ?? 1, 1]}
@@ -385,8 +409,7 @@ export const Scene = ({ headless }: { headless?: boolean }) => {
         })
       }}
       orthographic
-      style={{ height: '100svh', width: '100svw' }}
-    >
+      style={{ height: '100svh', width: '100svw' }}>
       <Suspense fallback={<Loader />}>
         <Inner />
       </Suspense>

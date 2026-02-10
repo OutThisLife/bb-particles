@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 
-export function Ring() {
+export function Ring({ width = 0.008 }: { width?: number }) {
   const curve = useMemo(() => {
     const pts: THREE.Vector3[] = []
 
@@ -14,14 +14,14 @@ export function Ring() {
     return new THREE.CatmullRomCurve3(pts, true)
   }, [])
 
-  return <tubeGeometry args={[curve, 128, 0.008, 4, false]} />
+  return <tubeGeometry args={[curve, 128, width, 4, false]} />
 }
 
 export function Disc() {
   return <ringGeometry args={[0, 1, 64, 8]} />
 }
 
-export function Bar() {
+export function Bar({ width = 0.006 }: { width?: number }) {
   const curve = useMemo(
     () =>
       new THREE.LineCurve3(
@@ -31,10 +31,10 @@ export function Bar() {
     []
   )
 
-  return <tubeGeometry args={[curve, 16, 0.006, 4, false]} />
+  return <tubeGeometry args={[curve, 16, width, 4, false]} />
 }
 
-export function Arch() {
+export function Arch({ width = 0.008 }: { width?: number }) {
   const curve = useMemo(() => {
     const pts: THREE.Vector3[] = []
     const segments = 64
@@ -47,10 +47,10 @@ export function Arch() {
     return new THREE.CatmullRomCurve3(pts, false)
   }, [])
 
-  return <tubeGeometry args={[curve, 64, 0.008, 4, false]} />
+  return <tubeGeometry args={[curve, 64, width, 4, false]} />
 }
 
-export function Spiral() {
+export function Spiral({ width = 0.008 }: { width?: number }) {
   const curve = useMemo(() => {
     const pts: THREE.Vector3[] = []
     const turns = 3
@@ -72,10 +72,10 @@ export function Spiral() {
     return new THREE.CatmullRomCurve3(pts, false)
   }, [])
 
-  return <tubeGeometry args={[curve, 128, 0.008, 4, false]} />
+  return <tubeGeometry args={[curve, 128, width, 4, false]} />
 }
 
-export function Wave() {
+export function Wave({ width = 0.008 }: { width?: number }) {
   const curve = useMemo(() => {
     const pts: THREE.Vector3[] = []
     const segments = 96
@@ -88,10 +88,10 @@ export function Wave() {
     return new THREE.CatmullRomCurve3(pts, false)
   }, [])
 
-  return <tubeGeometry args={[curve, 96, 0.008, 4, false]} />
+  return <tubeGeometry args={[curve, 96, width, 4, false]} />
 }
 
-export function InfinityShape() {
+export function InfinityShape({ width = 0.008 }: { width?: number }) {
   const curve = useMemo(() => {
     const pts: THREE.Vector3[] = []
     const segments = 128
@@ -111,10 +111,10 @@ export function InfinityShape() {
     return new THREE.CatmullRomCurve3(pts, true)
   }, [])
 
-  return <tubeGeometry args={[curve, 128, 0.008, 4, false]} />
+  return <tubeGeometry args={[curve, 128, width, 4, false]} />
 }
 
-export function Square() {
+export function Square({ width = 0.008 }: { width?: number }) {
   const curve = useMemo(() => {
     const s = 0.7
 
@@ -132,10 +132,10 @@ export function Square() {
     )
   }, [])
 
-  return <tubeGeometry args={[curve, 64, 0.008, 4, false]} />
+  return <tubeGeometry args={[curve, 64, width, 4, false]} />
 }
 
-export function RoundedRect() {
+export function RoundedRect({ width = 0.008 }: { width?: number }) {
   const curve = useMemo(() => {
     const pts: THREE.Vector3[] = []
 
@@ -161,10 +161,10 @@ export function RoundedRect() {
     return new THREE.CatmullRomCurve3(pts, false)
   }, [])
 
-  return <tubeGeometry args={[curve, 96, 0.008, 4, false]} />
+  return <tubeGeometry args={[curve, 96, width, 4, false]} />
 }
 
-export function U() {
+export function U({ width = 0.008 }: { width?: number }) {
   const curve = useMemo(() => {
     const pts: THREE.Vector3[] = []
 
@@ -190,10 +190,10 @@ export function U() {
     return new THREE.CatmullRomCurve3(pts, false)
   }, [])
 
-  return <tubeGeometry args={[curve, 96, 0.008, 4, false]} />
+  return <tubeGeometry args={[curve, 96, width, 4, false]} />
 }
 
-export function Line() {
+export function Line({ width = 0.006 }: { width?: number }) {
   const curve = useMemo(
     () =>
       new THREE.LineCurve3(
@@ -203,11 +203,11 @@ export function Line() {
     []
   )
 
-  return <tubeGeometry args={[curve, 16, 0.006, 4, false]} />
+  return <tubeGeometry args={[curve, 16, width, 4, false]} />
 }
 
-export function Q() {
-  const [geometries, setGeometries] = useState<THREE.BufferGeometry[]>([])
+export function Q({ width = 0.008 }: { width?: number }) {
+  const [curves, setCurves] = useState<THREE.CatmullRomCurve3[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -220,7 +220,7 @@ export function Q() {
           return setLoading(false)
         }
 
-        const geos = path.subPaths
+        const c = path.subPaths
           .map(sub => sub.getPoints(100))
           .filter(pts => pts.length > 2)
           .map(pts => {
@@ -230,18 +230,16 @@ export function Q() {
             const cx = (Math.min(...xs) + Math.max(...xs)) / 2
             const cy = (Math.min(...ys) + Math.max(...ys)) / 2
 
-            const curve = new THREE.CatmullRomCurve3(
+            return new THREE.CatmullRomCurve3(
               pts.map(
                 p =>
                   new THREE.Vector3((p.x - cx) * 0.002, -(p.y - cy) * 0.002, 0)
               ),
               false
             )
-
-            return new THREE.TubeGeometry(curve, 64, 0.008, 4, false)
           })
 
-        setGeometries(geos)
+        setCurves(c)
         setLoading(false)
       },
       undefined,
@@ -253,18 +251,16 @@ export function Q() {
     return <ringGeometry args={[0.9, 1, 32, 1, 0, Math.PI * 1.5]} />
   }
 
-  return geometries.length > 0 ? (
+  return curves.length > 0 ? (
     <>
-      {geometries.map((geo, i) => (
-        <bufferGeometry key={i} {...geo} />
+      {curves.map((curve, i) => (
+        <tubeGeometry args={[curve, 64, width, 4, false]} key={i} />
       ))}
     </>
   ) : (
     <ringGeometry args={[0.95, 1, 100, 1, 0, Math.PI * 1.7]} />
   )
 }
-
-export const Default = Ring.bind(null)
 
 export const SHAPES = [
   'ring',
@@ -279,7 +275,9 @@ export const SHAPES = [
   'roundedRect'
 ] as const
 
-const MAP: Record<string, () => JSX.Element> = {
+type ShapeProps = { width?: number }
+
+const MAP: Record<string, (props: ShapeProps) => JSX.Element> = {
   arch: Arch,
   bar: Bar,
   infinity: InfinityShape,
@@ -294,9 +292,11 @@ const MAP: Record<string, () => JSX.Element> = {
 
 export const Geo = ({
   gltf,
-  shape
+  shape,
+  width
 }: {
   shape: string
+  width?: number
   gltf?: THREE.BufferGeometry[]
 }) =>
   gltf ? (
@@ -306,5 +306,5 @@ export const Geo = ({
       ))}
     </>
   ) : (
-    (MAP[shape]?.() ?? <Ring />)
+    (MAP[shape]?.({ width }) ?? <Ring width={width} />)
   )

@@ -186,6 +186,7 @@ export type DitherParams = {
 
 export type SceneParams = {
   geometry: string
+  geoWidth: number
   color: string
   repetitions: number
   alphaFactor: number
@@ -217,6 +218,7 @@ export type LayerParams = {
   scaleFactor?: number
   rotationFactor?: number
   color?: string
+  geoWidth?: number
   geometry?: string
 }
 
@@ -232,23 +234,30 @@ export const DEFAULT_DITHER: DitherParams = {
 }
 
 export const DEFAULT_PARAMS: SceneParams = {
-  alphaFactor: 0.65,
+  alphaFactor: 0.68,
   alphaProgression: 'exponential',
-  color: '#FFFDDD',
+  color: '#efeddb',
   debug: false,
   dither: DEFAULT_DITHER,
   geometry: 'ring',
-  layers: [{ position: { x: 0, y: 0 }, rotation: 0, scale: { x: -1, y: 1 } }],
+  geoWidth: 0.041,
+  layers: [
+    {
+      position: { x: -0.002669900489082666, y: -0.46229475798772235 },
+      rotation: 0,
+      scale: { x: -1, y: 1 }
+    }
+  ],
   origin: 'top-center',
   position: { x: 0, y: -0.5 },
   positionCoupled: true,
   positionProgression: 'index',
-  repetitions: 65,
+  repetitions: 75,
   rotation: 0,
-  rotationFactor: 0,
+  rotationFactor: -0.48,
   rotationProgression: 'linear',
-  scale: 0.85,
-  scaleFactor: 1.05,
+  scale: 0.4,
+  scaleFactor: 1.03,
   scaleProgression: 'exponential',
   stepFactor: 0.02,
   xStep: -1.5,
@@ -268,6 +277,7 @@ export const fromSceneParams = (
   }
 
   set('Element.geometry', params.geometry)
+  set('Element.geoWidth', params.geoWidth)
   set('Element.color', params.color)
   set('Scalars.repetitions', params.repetitions)
   set('Scalars.alphaFactor', params.alphaFactor)
@@ -334,6 +344,10 @@ export const fromSceneParams = (
       result[`${pre}color`] = { disabled: false, value: layer.color }
     }
 
+    if (layer.geoWidth !== undefined) {
+      result[`${pre}geoWidth`] = { disabled: false, value: layer.geoWidth }
+    }
+
     if (layer.geometry !== undefined) {
       result[`${pre}geometry`] = { disabled: false, value: layer.geometry }
     }
@@ -388,6 +402,10 @@ export const toSceneParams = (
       layer.color = data[`${pre}color`].value
     }
 
+    if (data[`${pre}geoWidth`] && !data[`${pre}geoWidth`].disabled) {
+      layer.geoWidth = data[`${pre}geoWidth`].value
+    }
+
     if (data[`${pre}geometry`] && !data[`${pre}geometry`].disabled) {
       layer.geometry = data[`${pre}geometry`].value
     }
@@ -415,6 +433,7 @@ export const toSceneParams = (
       type: get('Dither.type', DEFAULT_DITHER.type)
     },
     geometry: get('Element.geometry', DEFAULT_PARAMS.geometry),
+    geoWidth: get('Element.geoWidth', DEFAULT_PARAMS.geoWidth),
     layers,
     origin: get('Spatial.origin', DEFAULT_PARAMS.origin),
     position: get('Scene.position', DEFAULT_PARAMS.position),

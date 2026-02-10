@@ -3,6 +3,7 @@ import { levaStore } from 'leva'
 import { useEffect } from 'react'
 
 import { $layers } from '@/store'
+import type { EncodedEntry } from '@/utils/codec'
 import { decode, encode } from '@/utils/codec'
 
 let hydrated = false
@@ -13,6 +14,37 @@ const countLayers = (keys: string[]) =>
 const shouldEncode = (k: string, layers: number) =>
   !k.includes('transform') &&
   (k.match(/g(\d+)/) ? layers > +k.match(/g(\d+)/)![1] : true)
+
+// Read URL params once at module load for initial control values
+let _initParams: Record<string, EncodedEntry> | null = null
+
+function getInitParams() {
+  if (_initParams) {
+    return _initParams
+  }
+
+  if (typeof window === 'undefined') {
+    return {}
+  }
+  const c = new URLSearchParams(window.location.search).get('c')
+  _initParams = c ? decode(c) : {}
+  // Set initial layer count
+  const n = countLayers(Object.keys(_initParams))
+
+  if (n > 1) {
+    $layers.set(n)
+  }
+
+  return _initParams
+}
+
+/** Get initial value from URL params, falling back to default */
+export const initVal = <T>(key: string, def: T): T =>
+  (getInitParams()[key]?.value as T) ?? def
+
+/** Get initial disabled state from URL params */
+export const initDisabled = (key: string, def = true): boolean =>
+  getInitParams()[key]?.disabled ?? def
 
 export default function useLinkableControls() {
   const data = levaStore.useStore(s => s.data)
@@ -32,50 +64,20 @@ export default function useLinkableControls() {
       return
     }
 
-    const url = new URL(window.location.href)
+    // First run: hydrate non-group values via levaStore.set
+    // (Group optional controls already init'd via initVal/initDisabled)
+    if (!hydrated) {
+      const params = getInitParams()
 
-    // Hydrate from URL on first load
-    if (!hydrated && url.searchParams.has('c')) {
-      const params = decode(url.searchParams.get('c')!)
-
-      if (!Object.keys(params).length) {
-        return
-      }
-
-      // Ensure enough layers exist before hydrating
-      if (countLayers(Object.keys(params)) > countLayers(Object.keys(data))) {
-        $layers.set(countLayers(Object.keys(params)))
-
-        return
-      }
-
-      // Set control values
-      levaStore.set(
-        Object.fromEntries(
-          Object.entries(params).map(([k, v]) => [k, v.value])
-        ),
-        false
-      )
-
-      // Sync disabled states for optional controls
-      const disabledUpdates = Object.fromEntries(
-        Object.entries(params)
-          .filter(
-            ([k, v]) =>
-              'disabled' in v && data[k] && 'disabled' in (data[k] as any)
-          )
-          .map(([k, v]) => [k, (v as any).disabled])
-      )
-
-      if (Object.keys(disabledUpdates).length) {
-        levaStore.useStore.setState(state => ({
-          data: Object.fromEntries(
-            Object.entries(state.data).map(([k, v]) => [
-              k,
-              k in disabledUpdates ? { ...v, disabled: disabledUpdates[k] } : v
-            ])
-          )
-        }))
+      if (Object.keys(params).length) {
+        levaStore.set(
+          Object.fromEntries(
+            Object.entries(params)
+              .filter(([k]) => !k.startsWith('Groups.'))
+              .map(([k, v]) => [k, v.value])
+          ),
+          false
+        )
       }
 
       hydrated = true
@@ -84,6 +86,8 @@ export default function useLinkableControls() {
     }
 
     // Encode to URL
+    const url = new URL(window.location.href)
+
     const filtered = Object.fromEntries(
       Object.entries(data).filter(([k]) => shouldEncode(k, layers))
     )
