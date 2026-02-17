@@ -12,6 +12,7 @@ import {
   calcPosition,
   calcRotation,
   calcScale,
+  gradientAngleUniform,
   obcChain,
   obcGradient,
   obcInstanced
@@ -95,6 +96,7 @@ function Layer({ gltf, o, p, ...rest }: LayerProps) {
 
 export const SceneCore = ({ params: p }: { params: SceneParams }) => {
   const gltf = useStore($object)
+  gradientAngleUniform.value = p.gradientAngle
 
   if (p.debug) {
     return (

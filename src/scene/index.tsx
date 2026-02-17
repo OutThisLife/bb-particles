@@ -26,6 +26,7 @@ import {
   calcPosition,
   calcRotation,
   calcScale,
+  gradientAngleUniform,
   obcChain,
   obcGradient,
   obcInstanced
@@ -92,7 +93,7 @@ function Inner() {
   const gltf = useStore($object)
   const layers = useStore($layers)
 
-  const { color, geometry, geoWidth } = useSmoothControls(
+  const { color, geometry, geoWidth, gradientAngle } = useSmoothControls(
     'Element',
     {
       color: { label: 'Color', value: '#efeddb' },
@@ -103,10 +104,19 @@ function Inner() {
         min: 0.001,
         step: 0.001,
         value: 0.041
+      },
+      gradientAngle: {
+        label: 'Gradient',
+        max: Math.PI,
+        min: -Math.PI,
+        step: 0.01,
+        value: 0
       }
     },
     { duration: 0.01 }
   )
+
+  gradientAngleUniform.value = gradientAngle
 
   const { repetitions, ...scalars } = useSmoothControls('Scalars', {
     alphaFactor: { max: 1, min: 0, step: 0.01, value: 0.68 },

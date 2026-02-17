@@ -29,25 +29,25 @@ diffuseColor.rgb *= vIColor;`
     )
 }
 
+export const gradientAngleUniform = { value: 0 }
+
 export const obcGradient: OBC = s => {
+  s.uniforms.gradientAngle = gradientAngleUniform
+
   s.vertexShader = s.vertexShader
-    .replace(
-      '#include <common>',
-      '#include <common>\nvarying vec3 vPosition;\nvarying vec2 vUv;'
-    )
-    .replace(
-      '#include <begin_vertex>',
-      '#include <begin_vertex>\nvPosition = position;\nvUv = uv;'
-    )
+    .replace('#include <common>', '#include <common>\nvarying vec2 vGrad;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGrad = position.xy;')
 
   s.fragmentShader = s.fragmentShader
     .replace(
       '#include <common>',
-      '#include <common>\nvarying vec3 vPosition;\nvarying vec2 vUv;'
+      '#include <common>\nuniform float gradientAngle;\nvarying vec2 vGrad;'
     )
     .replace(
       '#include <color_fragment>',
-      '#include <color_fragment>\ndiffuseColor.rgb *= 1.0 - smoothstep(.2, 1., abs(vPosition.y) * .5 + .5);'
+      `#include <color_fragment>
+float gy = dot(vGrad, vec2(sin(gradientAngle), cos(gradientAngle)));
+diffuseColor.rgb *= 1.0 - smoothstep(.2, 1., abs(gy) * .5 + .5);`
     )
 }
 

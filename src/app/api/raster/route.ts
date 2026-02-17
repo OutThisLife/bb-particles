@@ -4,79 +4,148 @@ import { chromium } from 'playwright'
 import type { SceneParams } from '@/utils/codec'
 import { decode, encode, fromSceneParams } from '@/utils/codec'
 
-// Detect if params are in prefixed/leva format (vs SceneParams)
+const POOL_SIZE = 4
+const BASE_URL = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'
+
+const BROWSER_ARGS = [
+  '--no-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-setuid-sandbox',
+  '--disable-gpu-sandbox',
+  '--enable-features=WebGL',
+  '--ignore-gpu-blocklist'
+]
+
 const isPrefixed = (p: Record<string, unknown>) =>
   'Element.geometry' in p || 'Scalars.repetitions' in p
 
-// Convert flat object to EncodedEntry format for binary encoding
 const toEntries = (flat: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(flat).map(([k, v]) => [k, { value: v }]))
 
+// ── Pool ──
+
 let browser: Browser | null = null
-const PAGE_POOL_SIZE = 8 // match client MAX_WORKERS
-const pagePool: Page[] = []
-const pageQueue: ((page: Page) => void)[] = []
+const pool: Page[] = []
+const queue: ((page: Page) => void)[] = []
+let totalPages = 0
+let creating = 0
 
-async function getBrowser() {
-  if (!browser) {
-    browser = await chromium.launch({ headless: true })
-
-    // Pre-warm pages
-    for (let i = 0; i < PAGE_POOL_SIZE; i++) {
-      const page = await browser.newPage({
-        viewport: { height: 1024, width: 1024 }
-      })
-
-      pagePool.push(page)
-    }
+async function ensureBrowser() {
+  if (!browser?.isConnected()) {
+    browser = await chromium.launch({ args: BROWSER_ARGS, headless: true })
   }
 
   return browser
 }
 
-async function acquirePage(): Promise<Page> {
-  await getBrowser()
-  const page = pagePool.pop()
+async function warmPage(): Promise<Page> {
+  const page = await (
+    await ensureBrowser()
+  ).newPage({ viewport: { height: 1024, width: 1024 } })
+
+  await page.goto(`${BASE_URL}/render`, {
+    timeout: 30_000,
+    waitUntil: 'load'
+  })
+  await page.waitForFunction(() => window.__RENDER_READY__ === true, {
+    timeout: 60_000
+  })
+
+  return page
+}
+
+async function createPage(): Promise<Page> {
+  creating++
+
+  try {
+    const page = await warmPage()
+    totalPages++
+
+    return page
+  } finally {
+    creating--
+    pump()
+  }
+}
+
+function give(page: Page) {
+  const next = queue.shift()
+  next ? next(page) : pool.push(page)
+  pump()
+}
+
+function pump() {
+  if (
+    queue.length === 0 ||
+    totalPages + creating >= POOL_SIZE ||
+    creating >= 1
+  ) {
+    return
+  }
+
+  createPage()
+    .then(give)
+    .catch(() => pump())
+}
+
+async function acquire(): Promise<Page> {
+  const page = pool.pop()
 
   if (page) {
-    return page
+    try {
+      await page.evaluate(() => true)
+
+      return page
+    } catch {
+      try {
+        await page.close()
+      } catch {
+        // ignore
+      }
+
+      totalPages = Math.max(0, totalPages - 1)
+    }
   }
 
-  // Wait for a page to be released
-  return new Promise(resolve => pageQueue.push(resolve))
-}
-
-function releasePage(page: Page) {
-  const waiting = pageQueue.shift()
-
-  if (waiting) {
-    waiting(page)
-  } else {
-    pagePool.push(page)
+  if (totalPages + creating < POOL_SIZE && creating < 1) {
+    return createPage()
   }
+
+  return new Promise<Page>(resolve => {
+    queue.push(resolve)
+    pump()
+  })
 }
+
+function release(page: Page) {
+  give(page)
+}
+
+async function discard(page: Page) {
+  try {
+    await page.close()
+  } catch {
+    // ignore
+  }
+
+  totalPages = Math.max(0, totalPages - 1)
+  pump()
+}
+
+// ── Routes ──
 
 export async function POST(req: Request) {
   const raw = await req.json()
-
-  const page = await acquirePage()
+  const page = await acquire()
 
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'
-
-    // Binary encode params for /render?c= (same path as frontend)
-    const encodedParams = isPrefixed(raw)
+    const enc = isPrefixed(raw)
       ? encode(toEntries(raw))
       : encode(fromSceneParams(raw as SceneParams))
 
-    await page.goto(`${baseUrl}/render?c=${encodedParams}`, {
-      timeout: 10000,
-      waitUntil: 'domcontentloaded'
-    })
-
-    // Wait for canvas ready
+    await page.evaluate(e => window.__updateParams?.(e), enc)
     await page.waitForFunction(() => window.__RENDER_READY__ === true, {
-      timeout: 10000
+      timeout: 10_000
     })
 
     const buffer = await page.screenshot({
@@ -84,15 +153,19 @@ export async function POST(req: Request) {
       type: 'png'
     })
 
+    release(page)
+
     return new Response(new Uint8Array(buffer), {
       headers: {
         'Cache-Control': 'no-store',
         'Content-Type': 'image/png',
-        'X-Encoded-Params': encodedParams
+        'X-Encoded-Params': enc
       }
     })
-  } finally {
-    releasePage(page)
+  } catch {
+    await discard(page)
+
+    return new Response('Render failed', { status: 500 })
   }
 }
 
@@ -106,15 +179,13 @@ export async function GET(req: Request) {
     })
   }
 
-  // Try JSON first, fall back to binary decode
   let flat: Record<string, unknown>
 
   try {
     flat = JSON.parse(encoded)
   } catch {
-    const decoded = decode(encoded)
     flat = Object.fromEntries(
-      Object.entries(decoded).map(([k, v]) => [k, v.value])
+      Object.entries(decode(encoded)).map(([k, v]) => [k, v.value])
     )
   }
 

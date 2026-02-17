@@ -5,12 +5,7 @@ import vertexShader from '../AfterPass/vert.vs'
 
 import fragmentShader from './frag.fs'
 
-export type DitherType =
-  | 'bayer'
-  | 'noise'
-  | 'halftone'
-  | 'crosshatch'
-  | 'random'
+export type DitherType = 'bayer' | 'noise' | 'halftone'
 export type MatrixSize = 2 | 4 | 8
 
 export interface DitherOptions {
@@ -25,10 +20,8 @@ export interface DitherOptions {
 
 const DITHER_TYPE_MAP: Record<DitherType, number> = {
   bayer: 0,
-  crosshatch: 3,
   halftone: 2,
-  noise: 1,
-  random: 4
+  noise: 1
 }
 
 const DitherShader = {
@@ -56,33 +49,23 @@ export class DitherPass extends Pass {
     super()
 
     this.uniforms = THREE.UniformsUtils.clone(DitherShader.uniforms)
-
-    if (options.strength !== undefined) {
-      this.uniforms.strength.value = options.strength
-    }
-
-    if (options.colorDepth !== undefined) {
-      this.uniforms.colorDepth.value = options.colorDepth
-    }
-
-    if (options.patternScale !== undefined) {
-      this.uniforms.patternScale.value = options.patternScale
-    }
-
-    if (options.bias !== undefined) {
-      this.uniforms.bias.value = options.bias
-    }
-
-    if (options.matrixSize !== undefined) {
-      this.uniforms.matrixSize.value = options.matrixSize
-    }
+    ;(
+      [
+        'strength',
+        'colorDepth',
+        'patternScale',
+        'bias',
+        'matrixSize',
+        'grayscale'
+      ] as const
+    ).forEach(k => {
+      if (options[k] !== undefined) {
+        this.uniforms[k].value = options[k]
+      }
+    })
 
     if (options.ditherType !== undefined) {
       this.uniforms.ditherType.value = DITHER_TYPE_MAP[options.ditherType]
-    }
-
-    if (options.grayscale !== undefined) {
-      this.uniforms.grayscale.value = options.grayscale
     }
 
     this.material = new THREE.ShaderMaterial({
@@ -94,7 +77,6 @@ export class DitherPass extends Pass {
     this.fsQuad = new FullScreenQuad(this.material)
   }
 
-  // Setters for live updates
   set strength(v: number) {
     this.uniforms.strength.value = v
   }

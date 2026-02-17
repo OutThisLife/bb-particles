@@ -10,9 +10,7 @@ uniform vec2 resolution;
 
 in vec2 vUv;
 
-// Scale-independent: patterns look the same at any resolution
 const float REF_RES = 1024.0;
-float resScale() { return resolution.x / REF_RES; }
 
 // Bayer matrices
 const float bayer2[4] = float[4](0.0, 2.0, 3.0, 1.0);
@@ -27,7 +25,10 @@ const float bayer8[64] = float[64](
     41.0, 51.0, 19.0, 59.0, 27.0, 49.0, 17.0, 57.0, 25.0, 15.0, 47.0, 7.0, 39.0,
     13.0, 45.0, 5.0, 37.0, 63.0, 31.0, 55.0, 23.0, 61.0, 29.0, 53.0, 21.0);
 
-float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
+
+float luma(vec3 c) {
+  return dot(c, vec3(0.299, 0.587, 0.114));
+}
 
 float getBayerValue(ivec2 pos) {
   if (matrixSize == 2) {
@@ -42,107 +43,39 @@ float getBayerValue(ivec2 pos) {
   }
 }
 
-// Interleaved Gradient Noise - Jorge Jimenez (CoD: AW)
-// Better than white noise, approximates blue noise properties
+// Interleaved Gradient Noise (Jorge Jimenez, CoD: AW)
 float interleavedGradientNoise(vec2 pos) {
-  vec3 magic = vec3(0.06711056, 0.00583715, 52.9829189);
-  return fract(magic.z * fract(dot(pos, magic.xy)));
+  vec3 m = vec3(0.06711056, 0.00583715, 52.9829189);
+  return fract(m.z * fract(dot(pos, m.xy)));
 }
 
-// Proper halftone - circular dots sized by luminance
-float halftone(vec2 uv, float lum) {
-  float cellSize = patternScale * resScale() * 4.0;
-  vec2 cellUv = fract(uv * resolution / cellSize) - 0.5;
-  float dist = length(cellUv);
-  float radius = (1.0 - lum) * 0.5;
-  return smoothstep(radius + 0.05, radius - 0.05, dist);
-}
-
-// Crosshatch - multiple line layers based on luminance
-float crosshatch(vec2 uv, float lum) {
-  float scale = patternScale * resScale() * 6.0;
-  vec2 p = uv * resolution / scale;
-
-  float line1 = abs(sin((p.x + p.y) * 3.14159));
-  float line2 = abs(sin((p.x - p.y) * 3.14159));
-  float line3 = abs(sin(p.x * 3.14159 * 2.0));
-  float line4 = abs(sin(p.y * 3.14159 * 2.0));
-
-  float result = 1.0;
-  float lineWidth = 0.4;
-
-  // Add more lines as luminance decreases
-  if (lum < 0.8)
-    result *= smoothstep(lineWidth, lineWidth + 0.1, line1);
-  if (lum < 0.6)
-    result *= smoothstep(lineWidth, lineWidth + 0.1, line2);
-  if (lum < 0.4)
-    result *= smoothstep(lineWidth, lineWidth + 0.1, line3);
-  if (lum < 0.2)
-    result *= smoothstep(lineWidth, lineWidth + 0.1, line4);
-
-  return result;
-}
-
-// Noise-based dithering (white noise)
-float whiteNoise(vec2 pos) {
-  return fract(sin(dot(pos, vec2(12.9898, 78.233))) * 43758.5453);
-}
 
 float getDitherThreshold(vec2 uv) {
-  float s = patternScale * resScale();
-  vec2 pos = uv * resolution / s;
-  ivec2 ipos = ivec2(floor(pos));
+  vec2 pos = uv * resolution / (patternScale * resolution.x / REF_RES);
 
   if (ditherType == 0) {
-    return getBayerValue(ipos);
+    // Bayer ordered dithering
+    return getBayerValue(ivec2(floor(pos)));
   } else if (ditherType == 1) {
-    return interleavedGradientNoise(floor(uv * resolution / s));
-  } else if (ditherType == 4) {
-    return whiteNoise(pos);
+    // IGN (blue-noise-like)
+    return interleavedGradientNoise(floor(pos));
+  } else {
+    // Halftone — radial dot threshold pattern
+    vec2 cellUv = fract(pos / 4.0) - 0.5;
+    return clamp(length(cellUv) * 2.0, 0.0, 1.0);
   }
-  return 0.5;
-}
-
-// Standard ordered dithering: add threshold noise, then quantize
-vec3 orderedDither(vec3 color, float threshold) {
-  float levels = colorDepth - 1.0;
-  // Threshold in range [0,1], center at 0.5 and apply bias
-  float t = (threshold - 0.5 + bias) / levels;
-  // Add dither noise before quantizing
-  vec3 dithered = color + t;
-  // Quantize
-  return floor(dithered * levels + 0.5) / levels;
 }
 
 void main() {
   vec4 tex = texture2D(tDiffuse, vUv);
   vec3 color = tex.rgb;
-  float lum = luma(color);
 
-  vec3 dithered;
+  float levels = colorDepth - 1.0;
+  float t = (getDitherThreshold(vUv) - 0.5 + bias) / levels;
 
-  if (ditherType == 2) {
-    // Halftone
-    float h = halftone(vUv, lum);
-    dithered = grayscale ? vec3(lum * h) : color * h;
-  } else if (ditherType == 3) {
-    // Crosshatch
-    float c = crosshatch(vUv, lum);
-    dithered = grayscale ? vec3(lum * c) : color * c;
-  } else {
-    // Ordered dithering (bayer, noise, random)
-    float threshold = getDitherThreshold(vUv);
-
-    if (grayscale) {
-      float levels = colorDepth - 1.0;
-      float t = (threshold - 0.5 + bias) / levels;
-      float d = floor((lum + t) * levels + 0.5) / levels;
-      dithered = vec3(d);
-    } else {
-      dithered = orderedDither(color, threshold);
-    }
-  }
+  vec3 dithered = grayscale
+    ? vec3(floor((luma(color) + t) * levels + 0.5) / levels)
+    : floor((color + t) * levels + 0.5) / levels;
 
   gl_FragColor = vec4(mix(color, dithered, strength), tex.a);
 }

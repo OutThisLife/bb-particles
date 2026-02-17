@@ -12,15 +12,13 @@ float hash(vec2 p) {
   return fract((p3.x + p3.y) * p3.z);
 }
 
-vec3 blendColorDodge(vec3 base, vec3 blend) {
-  return min(base / max(1.0 - blend, 0.001), 1.0);
-}
-
 void main() {
   vec4 tex = texture2D(tDiffuse, vUv);
-  float s = size * (resolution.x / 1024.0);
-  float n = hash(floor(vUv * resolution / s));
-  float mask = step(1.0 - density, n) * opacity;
-  vec3 blended = blendColorDodge(tex.rgb, vec3(n));
-  gl_FragColor = vec4(mix(tex.rgb, blended, mask), tex.a);
+  float s = max(size * (resolution.x / 1024.0), 1.0);
+  vec2 cell = floor(vUv * resolution / s);
+  float select = hash(cell);
+  float value = hash(cell + vec2(127.1, 311.7)) - 0.5;
+  float amount = step(1.0 - density, select) * opacity;
+  vec3 color = clamp(tex.rgb + vec3(value * amount), 0.0, 1.0);
+  gl_FragColor = vec4(color, tex.a);
 }

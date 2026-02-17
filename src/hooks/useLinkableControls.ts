@@ -7,16 +7,26 @@ import type { EncodedEntry } from '@/utils/codec'
 import { decode, encode } from '@/utils/codec'
 
 let hydrated = false
+let _initParams: Record<string, EncodedEntry> | null = null
 
-const countLayers = (keys: string[]) =>
+declare global {
+  interface Window {
+    __RENDER_READY__?: boolean
+    __updateParams?: (enc: string) => void
+  }
+}
+
+export const countLayers = (keys: string[]) =>
   new Set(keys.map(k => k.match(/g(\d+)/)?.[1]).filter(Boolean)).size
 
 const shouldEncode = (k: string, layers: number) =>
   !k.includes('transform') &&
   (k.match(/g(\d+)/) ? layers > +k.match(/g(\d+)/)![1] : true)
 
-// Read URL params once at module load for initial control values
-let _initParams: Record<string, EncodedEntry> | null = null
+export function resetInitParams(params: Record<string, EncodedEntry>) {
+  _initParams = params
+  hydrated = false
+}
 
 function getInitParams() {
   if (_initParams) {
@@ -28,7 +38,6 @@ function getInitParams() {
   }
   const c = new URLSearchParams(window.location.search).get('c')
   _initParams = c ? decode(c) : {}
-  // Set initial layer count
   const n = countLayers(Object.keys(_initParams))
 
   if (n > 1) {
@@ -38,15 +47,48 @@ function getInitParams() {
   return _initParams
 }
 
-/** Get initial value from URL params, falling back to default */
 export const initVal = <T>(key: string, def: T): T =>
   (getInitParams()[key]?.value as T) ?? def
 
-/** Get initial disabled state from URL params */
 export const initDisabled = (key: string, def = true): boolean =>
   getInitParams()[key]?.disabled ?? def
 
+function applyParams(enc: string) {
+  window.__RENDER_READY__ = false
+  const params = decode(enc)
+
+  if (Object.keys(params).length) {
+    const n = countLayers(Object.keys(params))
+
+    if (n >= 1) {
+      $layers.set(n)
+    }
+    const set: Record<string, unknown> = {}
+
+    for (const [k, v] of Object.entries(params)) {
+      if (v?.value !== undefined) {
+        set[k] =
+          v.disabled !== undefined
+            ? { disabled: v.disabled, value: v.value }
+            : v.value
+      }
+    }
+
+    levaStore.set(set, false)
+  }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      window.__RENDER_READY__ = true
+    })
+  })
+}
+
 export default function useLinkableControls() {
+  useEffect(() => {
+    window.__updateParams = applyParams
+  }, [])
+
   const data = levaStore.useStore(s => s.data)
   const layers = useStore($layers)
 
@@ -64,8 +106,6 @@ export default function useLinkableControls() {
       return
     }
 
-    // First run: hydrate non-group values via levaStore.set
-    // (Group optional controls already init'd via initVal/initDisabled)
     if (!hydrated) {
       const params = getInitParams()
 
@@ -85,7 +125,6 @@ export default function useLinkableControls() {
       return
     }
 
-    // Encode to URL
     const url = new URL(window.location.href)
 
     const filtered = Object.fromEntries(

@@ -32,18 +32,11 @@ export class NoisePass extends Pass {
     super()
 
     this.uniforms = THREE.UniformsUtils.clone(NoiseShader.uniforms)
-
-    if (options.size !== undefined) {
-      this.uniforms.size.value = options.size
-    }
-
-    if (options.density !== undefined) {
-      this.uniforms.density.value = options.density
-    }
-
-    if (options.opacity !== undefined) {
-      this.uniforms.opacity.value = options.opacity
-    }
+    ;(['size', 'density', 'opacity'] as const).forEach(k => {
+      if (options[k] !== undefined) {
+        this.uniforms[k].value = options[k]
+      }
+    })
 
     this.material = new THREE.ShaderMaterial({
       fragmentShader,

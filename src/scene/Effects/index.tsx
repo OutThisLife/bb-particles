@@ -10,13 +10,7 @@ import { NoisePass } from './NoisePass'
 
 extend({ DitherPass, EffectComposer, NoisePass, RenderPass })
 
-const DITHER_TYPES: DitherType[] = [
-  'bayer',
-  'noise',
-  'halftone',
-  'crosshatch',
-  'random'
-]
+const DITHER_TYPES: DitherType[] = ['bayer', 'noise', 'halftone']
 
 const MATRIX_SIZES: MatrixSize[] = [2, 4, 8]
 
@@ -82,7 +76,6 @@ export default function Effects() {
     return composer
   }, [gl, scene, camera])
 
-  // Sync dither controls
   useEffect(() => {
     if (!ditherRef.current) {
       return
@@ -98,7 +91,6 @@ export default function Effects() {
     ditherRef.current.grayscale = dither.grayscale
   }, [dither])
 
-  // Sync noise controls
   useEffect(() => {
     if (!noiseRef.current) {
       return
@@ -110,7 +102,6 @@ export default function Effects() {
     noiseRef.current.opacity = noise.opacity
   }, [noise])
 
-  // Resize handling
   useEffect(() => {
     fx.setSize(size.width, size.height)
   }, [fx, size])
