@@ -1,10 +1,11 @@
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 
-import type { SceneParams } from '@/utils/codec'
+import type { EncodedEntry, SceneParams } from '@/utils/codec'
 import { decode, encode, fromSceneParams } from '@/utils/codec'
 
 const POOL_SIZE = 4
+const MAX_RENDERS_PER_PAGE = 50
 const BASE_URL = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'
 
 const BROWSER_ARGS = [
@@ -13,7 +14,9 @@ const BROWSER_ARGS = [
   '--disable-setuid-sandbox',
   '--disable-gpu-sandbox',
   '--enable-features=WebGL',
-  '--ignore-gpu-blocklist'
+  '--ignore-gpu-blocklist',
+  '--disable-gpu-compositing',
+  '--js-flags=--expose-gc'
 ]
 
 const isPrefixed = (p: Record<string, unknown>) =>
@@ -22,11 +25,36 @@ const isPrefixed = (p: Record<string, unknown>) =>
 const toEntries = (flat: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(flat).map(([k, v]) => [k, { value: v }]))
 
+const isEntry = (v: unknown): v is EncodedEntry =>
+  !!v &&
+  typeof v === 'object' &&
+  'value' in v &&
+  Object.keys(v as Record<string, unknown>).every(
+    k => k === 'value' || k === 'disabled'
+  )
+
+const isEntryMap = (
+  p: Record<string, unknown>
+): p is Record<string, EncodedEntry> => Object.values(p).every(isEntry)
+
+const toEncoded = (raw: Record<string, unknown>) => {
+  if (isEntryMap(raw)) {
+    return encode(raw)
+  }
+
+  if (isPrefixed(raw)) {
+    return encode(toEntries(raw))
+  }
+
+  return encode(fromSceneParams(raw as SceneParams))
+}
+
 // ── Pool ──
 
 let browser: Browser | null = null
 const pool: Page[] = []
 const queue: ((page: Page) => void)[] = []
+const renderCount = new WeakMap<Page, number>()
 let totalPages = 0
 let creating = 0
 
@@ -118,7 +146,25 @@ async function acquire(): Promise<Page> {
 }
 
 function release(page: Page) {
-  give(page)
+  const n = (renderCount.get(page) || 0) + 1
+  renderCount.set(page, n)
+
+  if (n >= MAX_RENDERS_PER_PAGE) {
+    discard(page)
+
+    return
+  }
+
+  // Reload to clear Leva state so params don't bleed between renders
+  page
+    .goto(`${BASE_URL}/render`, { timeout: 30_000, waitUntil: 'load' })
+    .then(() =>
+      page.waitForFunction(() => window.__RENDER_READY__ === true, {
+        timeout: 60_000
+      })
+    )
+    .then(() => give(page))
+    .catch(() => discard(page))
 }
 
 async function discard(page: Page) {
@@ -132,16 +178,18 @@ async function discard(page: Page) {
   pump()
 }
 
-// ── Routes ──
+// ── Shared render ──
 
-export async function POST(req: Request) {
-  const raw = await req.json()
+async function render(raw: Record<string, unknown>, size: number) {
   const page = await acquire()
+  const isThumb = size > 0 && size < 1024
 
   try {
-    const enc = isPrefixed(raw)
-      ? encode(toEntries(raw))
-      : encode(fromSceneParams(raw as SceneParams))
+    const enc = toEncoded(raw)
+
+    const clip = isThumb
+      ? ({ height: 1024, scale: size / 1024, width: 1024, x: 0, y: 0 } as any)
+      : undefined
 
     await page.evaluate(e => window.__updateParams?.(e), enc)
     await page.waitForFunction(() => window.__RENDER_READY__ === true, {
@@ -149,8 +197,10 @@ export async function POST(req: Request) {
     })
 
     const buffer = await page.screenshot({
-      omitBackground: true,
-      type: 'png'
+      clip,
+      omitBackground: !isThumb,
+      quality: isThumb ? 80 : undefined,
+      type: isThumb ? 'jpeg' : 'png'
     })
 
     release(page)
@@ -158,7 +208,7 @@ export async function POST(req: Request) {
     return new Response(new Uint8Array(buffer), {
       headers: {
         'Cache-Control': 'no-store',
-        'Content-Type': 'image/png',
+        'Content-Type': isThumb ? 'image/jpeg' : 'image/png',
         'X-Encoded-Params': enc
       }
     })
@@ -169,27 +219,40 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET(req: Request) {
-  const encoded = new URL(req.url).searchParams.get('parse')
+// ── Routes ──
 
-  if (!encoded) {
-    return new Response(JSON.stringify({ error: 'Missing ?parse= param' }), {
-      headers: { 'Content-Type': 'application/json' },
-      status: 400
-    })
+export async function POST(req: Request) {
+  const size = Number(new URL(req.url).searchParams.get('size')) || 0
+
+  return render(await req.json(), size)
+}
+
+export async function GET(req: Request) {
+  const url = new URL(req.url)
+  const params = url.searchParams.get('params')
+
+  if (params) {
+    const size = Number(url.searchParams.get('size')) || 0
+
+    return render(JSON.parse(params), size)
   }
 
-  let flat: Record<string, unknown>
+  const encoded = url.searchParams.get('parse')
 
-  try {
-    flat = JSON.parse(encoded)
-  } catch {
-    flat = Object.fromEntries(
-      Object.entries(decode(encoded)).map(([k, v]) => [k, v.value])
+  if (!encoded) {
+    return new Response(
+      JSON.stringify({ error: 'Missing ?params= or ?parse= param' }),
+      {
+        headers: { 'Content-Type': 'application/json' },
+        status: 400
+      }
     )
   }
 
-  return new Response(JSON.stringify(flat), {
+  // Canonical parse payload: same shape accepted by POST for exact replay.
+  const entries = decode(encoded)
+
+  return new Response(JSON.stringify(entries), {
     headers: { 'Content-Type': 'application/json' }
   })
 }

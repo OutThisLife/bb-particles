@@ -39,8 +39,8 @@ export default function Effects() {
     {
       density: { max: 1, min: 0, step: 0.01, value: 0.11 },
       enabled: { value: false },
-      opacity: { max: 1, min: 0, step: 0.01, value: 0.55 },
-      size: { max: 3, min: 0.1, step: 0.1, value: 1 }
+      opacity: { max: 0.3, min: 0, step: 0.01, value: 0.11 },
+      size: { max: 0.55, min: 0.1, step: 0.01, value: 0.3 }
     },
     { collapsed: true }
   )

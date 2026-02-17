@@ -368,7 +368,8 @@ function Inner() {
           <SyncedTransform
             enabled={transform}
             levaKey="Scene.position"
-            position={[position.x, position.y, 0]}>
+            position={[position.x, position.y, 0]}
+          >
             <Layer scalars={scalars} />
           </SyncedTransform>
 
@@ -377,7 +378,8 @@ function Inner() {
               enabled={transform || layer.transform}
               key={n}
               levaKey={`Groups.g${n}.g${n}-position`}
-              position={[layer?.position?.x ?? 0, layer?.position?.y ?? 0, 0]}>
+              position={[layer?.position?.x ?? 0, layer?.position?.y ?? 0, 0]}
+            >
               <Layer
                 layerColor={layer?.color}
                 layerGeometry={layer?.geometry}
@@ -419,7 +421,8 @@ export const Scene = ({ headless }: { headless?: boolean }) => {
         })
       }}
       orthographic
-      style={{ height: '100svh', width: '100svw' }}>
+      style={{ height: '100svh', width: '100svw' }}
+    >
       <Suspense fallback={<Loader />}>
         <Inner />
       </Suspense>

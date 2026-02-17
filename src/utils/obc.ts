@@ -36,7 +36,10 @@ export const obcGradient: OBC = s => {
 
   s.vertexShader = s.vertexShader
     .replace('#include <common>', '#include <common>\nvarying vec2 vGrad;')
-    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGrad = position.xy;')
+    .replace(
+      '#include <begin_vertex>',
+      '#include <begin_vertex>\nvGrad = position.xy;'
+    )
 
   s.fragmentShader = s.fragmentShader
     .replace(
