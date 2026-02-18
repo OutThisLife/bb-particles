@@ -27,6 +27,7 @@ import {
   calcRotation,
   calcScale,
   gradientAngleUniform,
+  gradientRangeUniform,
   obcChain,
   obcGradient,
   obcInstanced
@@ -87,13 +88,21 @@ interface LayerProps extends InstancesProps {
   layerColor?: string
   layerGeometry?: string
   layerGeoWidth?: number
+  layerStartAngle?: number
 }
 
 function Inner() {
   const gltf = useStore($object)
   const layers = useStore($layers)
 
-  const { color, geometry, geoWidth, gradientAngle } = useSmoothControls(
+  const {
+    color,
+    geometry,
+    geoWidth,
+    gradientAngle,
+    gradientRange,
+    startAngle
+  } = useSmoothControls(
     'Element',
     {
       color: { label: 'Color', value: '#efeddb' },
@@ -111,12 +120,27 @@ function Inner() {
         min: -Math.PI,
         step: 0.01,
         value: 0
+      },
+      gradientRange: {
+        label: 'Grad Range',
+        max: 2,
+        min: -1,
+        step: 0.01,
+        value: [0.2, 1.0]
+      },
+      startAngle: {
+        label: 'Start Angle',
+        max: Math.PI,
+        min: -Math.PI,
+        step: 0.01,
+        value: 0
       }
     },
     { duration: 0.01 }
   )
 
   gradientAngleUniform.value = gradientAngle
+  gradientRangeUniform.value = gradientRange
 
   const { repetitions, ...scalars } = useSmoothControls('Scalars', {
     alphaFactor: { max: 1, min: 0, step: 0.01, value: 0.68 },
@@ -248,6 +272,15 @@ function Inner() {
                   step: 0.01,
                   value: initVal(`Groups.g${i}.g${i}-scaleFactor`, 1.05)
                 },
+                [`g${i}-startAngle`]: {
+                  disabled: initDisabled(`Groups.g${i}.g${i}-startAngle`),
+                  label: 'Start Angle',
+                  max: Math.PI,
+                  min: -Math.PI,
+                  optional: true,
+                  step: 0.01,
+                  value: initVal(`Groups.g${i}.g${i}-startAngle`, 0)
+                },
                 [`g${i}-stepFactor`]: {
                   disabled: initDisabled(`Groups.g${i}.g${i}-stepFactor`),
                   label: 'stepFactor',
@@ -292,6 +325,7 @@ function Inner() {
     layerColor,
     layerGeometry,
     layerGeoWidth,
+    layerStartAngle,
     range = repetitions,
     scalars: s = {},
     ...props
@@ -308,13 +342,14 @@ function Inner() {
     const coupled = s.positionCoupled ?? scalars.positionCoupled ?? true
     const geo = layerGeometry ?? geometry
     const w = layerGeoWidth ?? geoWidth
+    const sa = layerStartAngle ?? startAngle ?? 0
 
     return (
       <Instances {...props}>
         <InstancedAttribute defaultValue={1} name="opacity" />
         <InstancedAttribute defaultValue={[1, 1, 1]} name="iColor" />
 
-        <Geo gltf={gltf} shape={geo} width={w} />
+        <Geo gltf={gltf} shape={geo} startAngle={sa} width={w} />
 
         <meshBasicMaterial
           blending={THREE.AdditiveBlending}
@@ -360,7 +395,12 @@ function Inner() {
     <group rotation={[0, 0, rotation]} scale={scale}>
       {debug ? (
         <mesh position={[position.x, position.y, 0]}>
-          <Geo gltf={gltf} shape={geometry} width={geoWidth} />
+          <Geo
+            gltf={gltf}
+            shape={geometry}
+            startAngle={startAngle}
+            width={geoWidth}
+          />
           <meshBasicMaterial />
         </mesh>
       ) : (
@@ -384,6 +424,7 @@ function Inner() {
                 layerColor={layer?.color}
                 layerGeometry={layer?.geometry}
                 layerGeoWidth={layer?.geoWidth}
+                layerStartAngle={layer?.startAngle}
                 rotation={[0, 0, layer?.rotation ?? 0]}
                 scalars={layer}
                 scale={[layer?.scale?.x ?? 1, layer?.scale?.y ?? 1, 1]}

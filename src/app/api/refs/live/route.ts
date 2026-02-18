@@ -28,6 +28,7 @@ const PREFIX_MAP: Record<string, string> = {
   geometry: 'Element.geometry',
   geoWidth: 'Element.geoWidth',
   gradientAngle: 'Element.gradientAngle',
+  gradientRange: 'Element.gradientRange',
   noiseDensity: 'Noise.density',
   noiseEnabled: 'Noise.enabled',
   noiseOpacity: 'Noise.opacity',
@@ -43,6 +44,7 @@ const PREFIX_MAP: Record<string, string> = {
   scale: 'Scene.scale',
   scaleFactor: 'Scalars.scaleFactor',
   scaleProgression: 'Scalars.scaleProgression',
+  startAngle: 'Element.startAngle',
   stepFactor: 'Scalars.stepFactor',
   xStep: 'Spatial.xStep',
   yStep: 'Spatial.yStep'

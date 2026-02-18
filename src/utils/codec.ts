@@ -190,8 +190,10 @@ export type DitherParams = {
 export type SceneParams = {
   geometry: string
   geoWidth: number
+  startAngle: number
   color: string
   gradientAngle: number
+  gradientRange: [number, number]
   repetitions: number
   alphaFactor: number
   scaleFactor: number
@@ -224,6 +226,7 @@ export type LayerParams = {
   color?: string
   geoWidth?: number
   geometry?: string
+  startAngle?: number
 }
 
 export const DEFAULT_DITHER: DitherParams = {
@@ -246,6 +249,7 @@ export const DEFAULT_PARAMS: SceneParams = {
   geometry: 'ring',
   geoWidth: 0.041,
   gradientAngle: 0,
+  gradientRange: [0.2, 1.0] as [number, number],
   layers: [
     {
       position: { x: -0.002669900489082666, y: -0.46229475798772235 },
@@ -264,6 +268,7 @@ export const DEFAULT_PARAMS: SceneParams = {
   scale: 0.4,
   scaleFactor: 1.03,
   scaleProgression: 'exponential',
+  startAngle: 0,
   stepFactor: 0.02,
   xStep: -1.5,
   yStep: 0
@@ -283,8 +288,10 @@ export const fromSceneParams = (
 
   set('Element.geometry', params.geometry)
   set('Element.geoWidth', params.geoWidth)
+  set('Element.startAngle', params.startAngle)
   set('Element.color', params.color)
   set('Element.gradientAngle', params.gradientAngle)
+  set('Element.gradientRange', params.gradientRange)
   set('Scalars.repetitions', params.repetitions)
   set('Scalars.alphaFactor', params.alphaFactor)
   set('Scalars.scaleFactor', params.scaleFactor)
@@ -357,6 +364,10 @@ export const fromSceneParams = (
     if (layer.geometry !== undefined) {
       result[`${pre}geometry`] = { disabled: false, value: layer.geometry }
     }
+
+    if (layer.startAngle !== undefined) {
+      result[`${pre}startAngle`] = { disabled: false, value: layer.startAngle }
+    }
   })
 
   return result
@@ -416,6 +427,10 @@ export const toSceneParams = (
       layer.geometry = data[`${pre}geometry`].value
     }
 
+    if (data[`${pre}startAngle`] && !data[`${pre}startAngle`].disabled) {
+      layer.startAngle = data[`${pre}startAngle`].value
+    }
+
     layers.push(layer)
     i++
   }
@@ -441,6 +456,7 @@ export const toSceneParams = (
     geometry: get('Element.geometry', DEFAULT_PARAMS.geometry),
     geoWidth: get('Element.geoWidth', DEFAULT_PARAMS.geoWidth),
     gradientAngle: get('Element.gradientAngle', DEFAULT_PARAMS.gradientAngle),
+    gradientRange: get('Element.gradientRange', DEFAULT_PARAMS.gradientRange),
     layers,
     origin: get('Spatial.origin', DEFAULT_PARAMS.origin),
     position: get('Scene.position', DEFAULT_PARAMS.position),
@@ -468,6 +484,7 @@ export const toSceneParams = (
       'Scalars.scaleProgression',
       DEFAULT_PARAMS.scaleProgression
     ),
+    startAngle: get('Element.startAngle', DEFAULT_PARAMS.startAngle),
     stepFactor: get('Scalars.stepFactor', DEFAULT_PARAMS.stepFactor),
     xStep: get('Spatial.xStep', DEFAULT_PARAMS.xStep),
     yStep: get('Spatial.yStep', DEFAULT_PARAMS.yStep)

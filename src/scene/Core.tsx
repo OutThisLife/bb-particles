@@ -13,6 +13,7 @@ import {
   calcRotation,
   calcScale,
   gradientAngleUniform,
+  gradientRangeUniform,
   obcChain,
   obcGradient,
   obcInstanced
@@ -37,6 +38,7 @@ function Layer({ gltf, o, p, ...rest }: LayerProps) {
   const geo = o?.geometry ?? p.geometry
   const col = o?.color ?? p.color
   const w = o?.geoWidth ?? p.geoWidth
+  const sa = o?.startAngle ?? p.startAngle ?? 0
 
   const color = useMemo(() => new THREE.Color(col), [col])
 
@@ -45,7 +47,7 @@ function Layer({ gltf, o, p, ...rest }: LayerProps) {
       <InstancedAttribute defaultValue={1} name="opacity" />
       <InstancedAttribute defaultValue={[1, 1, 1]} name="iColor" />
 
-      <Geo gltf={gltf} shape={geo} width={w} />
+      <Geo gltf={gltf} shape={geo} startAngle={sa} width={w} />
 
       <meshBasicMaterial
         blending={THREE.AdditiveBlending}
@@ -97,6 +99,7 @@ function Layer({ gltf, o, p, ...rest }: LayerProps) {
 export const SceneCore = ({ params: p }: { params: SceneParams }) => {
   const gltf = useStore($object)
   gradientAngleUniform.value = p.gradientAngle
+  gradientRangeUniform.value = p.gradientRange ?? [0.2, 1.0]
 
   if (p.debug) {
     return (
@@ -106,7 +109,12 @@ export const SceneCore = ({ params: p }: { params: SceneParams }) => {
         scale={p.scale}
       >
         <mesh>
-          <Geo gltf={gltf} shape={p.geometry} width={p.geoWidth} />
+          <Geo
+            gltf={gltf}
+            shape={p.geometry}
+            startAngle={p.startAngle ?? 0}
+            width={p.geoWidth}
+          />
           <meshBasicMaterial />
         </mesh>
       </group>

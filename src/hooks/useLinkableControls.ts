@@ -30,6 +30,7 @@ const OPTIONAL_GROUP_SUFFIXES = [
   '-geoWidth',
   '-rotationFactor',
   '-scaleFactor',
+  '-startAngle',
   '-stepFactor'
 ]
 
