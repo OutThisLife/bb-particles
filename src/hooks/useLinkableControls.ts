@@ -110,13 +110,6 @@ const parseRawEntries = (raw: string) =>
     )
   )
 
-const toEncodedParams = (data: Record<string, any>, layers: number) =>
-  Object.fromEntries(
-    Object.entries(data)
-      .filter(([k]) => shouldEncode(k, layers))
-      .map(([k, v]) => [k, normalizeEntry(v as EncodedEntry)])
-  )
-
 export function resetInitParams(params: Record<string, EncodedEntry>) {
   _initParams = params
   hydrated = false
@@ -235,7 +228,13 @@ export default function useLinkableControls() {
     const url = new URL(window.location.href)
     url.searchParams.delete('raw')
 
-    const enc = encode(toEncodedParams(data, layers))
+    const enc = encode(
+      Object.fromEntries(
+        Object.entries(data)
+          .filter(([k]) => shouldEncode(k, layers))
+          .map(([k, v]) => [k, normalizeEntry(v as EncodedEntry)])
+      )
+    )
 
     enc.length < 4
       ? url.searchParams.delete('c')

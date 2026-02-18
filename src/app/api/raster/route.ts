@@ -2,7 +2,7 @@ import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 
 import type { EncodedEntry, SceneParams } from '@/utils/codec'
-import { decode, encode, fromSceneParams } from '@/utils/codec'
+import { decode, encode, fromSceneParams, toEntries } from '@/utils/codec'
 
 const POOL_SIZE = 4
 const MAX_RENDERS_PER_PAGE = 50
@@ -21,9 +21,6 @@ const BROWSER_ARGS = [
 
 const isPrefixed = (p: Record<string, unknown>) =>
   'Element.geometry' in p || 'Scalars.repetitions' in p
-
-const toEntries = (flat: Record<string, unknown>) =>
-  Object.fromEntries(Object.entries(flat).map(([k, v]) => [k, { value: v }]))
 
 const isEntry = (v: unknown): v is EncodedEntry =>
   !!v &&

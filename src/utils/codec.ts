@@ -44,6 +44,9 @@ const readSVar = (buf: number[], o: number): [number, number] => {
 
 export type EncodedEntry = { value: any; disabled?: boolean }
 
+export const toEntries = (flat: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(flat).map(([k, v]) => [k, { value: v }]))
+
 export const encode = (data: Record<string, any>): string => {
   const buf: number[] = []
 

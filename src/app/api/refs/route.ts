@@ -1,14 +1,17 @@
-import { readFileSync, writeFileSync } from 'fs'
+import { createHash } from 'crypto'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
 
-import { encode } from '@/utils/codec'
+import { encode, toEntries } from '@/utils/codec'
+import { norm } from '@/utils/norm'
 
 const REFS_PATH =
   process.env.REFS_JSONL_PATH ||
   resolve(process.cwd(), '../bb-llm/art-explorer/references/refs.jsonl')
 
-const toEntries = (flat: Record<string, unknown>) =>
-  Object.fromEntries(Object.entries(flat).map(([k, v]) => [k, { value: v }]))
+const REFS_THUMBS_DIR =
+  process.env.REFS_THUMBS_DIR ||
+  resolve(process.cwd(), '../bb-llm/art-explorer/data/refs/images')
 
 function readLines() {
   try {
@@ -20,13 +23,24 @@ function readLines() {
   }
 }
 
+const thumbId = (raw: string) =>
+  createHash('sha1').update(raw).digest('hex').slice(0, 16)
+
 export async function GET() {
   const lines = readLines()
 
   const refs = lines.map((raw, i) => {
     const params = JSON.parse(raw)
+    const tid = thumbId(raw)
 
-    return { line: i + 1, params, raw }
+    return {
+      line: i + 1,
+      params,
+      raw,
+      thumbUrl: existsSync(resolve(REFS_THUMBS_DIR, `${tid}.jpg`))
+        ? `/api/refs/thumb/${tid}`
+        : ''
+    }
   })
 
   const encoded = new Map<string, string>()
@@ -44,35 +58,26 @@ export async function GET() {
   })
 }
 
-const deepSort = (o: unknown): unknown =>
-  o && typeof o === 'object' && !Array.isArray(o)
-    ? Object.fromEntries(
-        Object.entries(o)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([k, v]) => [k, deepSort(v)])
-      )
-    : o
-
-const norm = (s: string) => JSON.stringify(deepSort(JSON.parse(s)))
-
 export async function DELETE(req: Request) {
-  const { raws } = (await req.json()) as { raws: string[] }
-  const removeSet = new Set(raws.map(norm))
+  const { lines } = (await req.json()) as { lines?: number[] }
+
   const all = readLines()
-  const removed: number[] = []
 
-  const kept = all.filter((line, i) => {
-    const n = norm(line)
+  const uniqDesc = Array.from(
+    new Set(
+      (lines || []).filter(
+        line => Number.isInteger(line) && line >= 1 && line <= all.length
+      )
+    )
+  ).sort((a, b) => b - a)
 
-    if (removeSet.has(n)) {
-      removed.push(i + 1)
-      removeSet.delete(n)
+  const kept = [...all]
 
-      return false
-    }
+  for (const line of uniqDesc) {
+    kept.splice(line - 1, 1)
+  }
 
-    return true
-  })
+  const removed = [...uniqDesc].sort((a, b) => a - b)
 
   writeFileSync(REFS_PATH, kept.length ? kept.join('\n') + '\n' : '')
   console.log(

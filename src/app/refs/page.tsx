@@ -4,21 +4,45 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState
 } from 'react'
+
+import { decode } from '@/utils/codec'
 
 type Ref = {
   line: number
   params: Record<string, unknown>
   encoded: string
   raw: string
+  thumbUrl?: string
 }
 
 const rasterUrl = (params: Record<string, unknown>) =>
   `/api/raster?size=256&params=${encodeURIComponent(JSON.stringify(params))}`
 
 const fmtDeleting = (n: number) => `deleting ${n > 0 ? n : '?'}...`
+
+const extractC = (s: string) => {
+  const text = s.trim()
+
+  if (!text) {
+    return ''
+  }
+
+  try {
+    const u = new URL(text)
+
+    return u.searchParams.get('c') || ''
+  } catch {
+    if (text.startsWith('c=')) {
+      return text.slice(2)
+    }
+
+    return text
+  }
+}
 
 const toRect = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
   height: Math.abs(a.y - b.y),
@@ -47,6 +71,7 @@ export default function RefsPage() {
   const [editExpectedRaw, setEditExpectedRaw] = useState('')
   const [editText, setEditText] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
+  const [hashInput, setHashInput] = useState('')
   const [dragging, setDragging] = useState(false)
 
   const [dragOrigin, setDragOrigin] = useState<{ x: number; y: number } | null>(
@@ -55,6 +80,7 @@ export default function RefsPage() {
 
   const [dragEnd, setDragEnd] = useState<{ x: number; y: number } | null>(null)
   const [lastClicked, setLastClicked] = useState<string | null>(null)
+  const [thumbFails, setThumbFails] = useState<Set<string>>(new Set())
 
   const preDragSelected = useRef<Set<string>>(new Set())
   const gridRef = useRef<HTMLDivElement>(null)
@@ -84,6 +110,7 @@ export default function RefsPage() {
       .then(d => {
         setRefs(d.refs)
         setSelected(new Set())
+        setThumbFails(new Set())
       })
   }, [])
 
@@ -100,6 +127,7 @@ export default function RefsPage() {
     []
   )
 
+  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -127,6 +155,7 @@ export default function RefsPage() {
 
     return () => window.removeEventListener('keydown', onKey)
   }, [editOpen, refs, selected])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   function enqueueDelete(raws: string[]) {
     if (!raws.length) {
@@ -172,13 +201,17 @@ export default function RefsPage() {
     try {
       while (pendingRaws.current.size > 0) {
         const raws = Array.from(pendingRaws.current)
-        const lines = raws.map(r => pendingLines.current.get(r) ?? -1)
+
+        const lines = raws
+          .map(r => pendingLines.current.get(r) ?? -1)
+          .filter(line => line > 0)
+
         pendingRaws.current.clear()
 
         setDeleteFeed(lines.map(fmtDeleting).slice(0, 8))
 
         const res = await fetch('/api/refs', {
-          body: JSON.stringify({ raws }),
+          body: JSON.stringify({ lines }),
           headers: { 'Content-Type': 'application/json' },
           method: 'DELETE'
         })
@@ -272,6 +305,30 @@ export default function RefsPage() {
       scheduleFade()
     } finally {
       setSavingEdit(false)
+    }
+  }
+
+  function applyHashToEditor() {
+    const c = extractC(hashInput)
+
+    if (!c) {
+      setDeleteFeed(prev => [...prev, 'missing c hash'])
+      scheduleFade()
+
+      return
+    }
+
+    try {
+      const flat = Object.fromEntries(
+        Object.entries(decode(c)).map(([k, v]) => [k, v.value])
+      )
+
+      setEditText(JSON.stringify(flat, null, 2))
+      setDeleteFeed(prev => [...prev, 'loaded hash into editor'])
+      scheduleFade()
+    } catch {
+      setDeleteFeed(prev => [...prev, 'invalid c hash'])
+      scheduleFade()
     }
   }
 
@@ -372,8 +429,20 @@ export default function RefsPage() {
   const selRect =
     dragging && dragOrigin && dragEnd ? toRect(dragOrigin, dragEnd) : null
 
+  const editPreview = useMemo(() => {
+    if (!editOpen) {
+      return null
+    }
+
+    try {
+      return JSON.parse(editText) as Record<string, unknown>
+    } catch {
+      return null
+    }
+  }, [editOpen, editText])
+
   return (
-    <div className="min-h-screen select-none bg-black text-white">
+    <div className="min-h-[calc(100vh-36px)] select-none bg-black text-white">
       <div
         className="relative grid grid-cols-4 gap-1 p-1 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8"
         onMouseDown={handleMouseDown}
@@ -411,7 +480,20 @@ export default function RefsPage() {
                 className="pointer-events-none h-full w-full object-contain"
                 draggable={false}
                 loading="lazy"
-                src={rasterUrl(r.params)}
+                onError={() =>
+                  setThumbFails(prev => {
+                    const next = new Set(prev)
+
+                    next.add(r.raw)
+
+                    return next
+                  })
+                }
+                src={
+                  r.thumbUrl && !thumbFails.has(r.raw)
+                    ? r.thumbUrl
+                    : rasterUrl(r.params)
+                }
               />
             </div>
 
@@ -465,40 +547,77 @@ export default function RefsPage() {
 
       {editOpen && (
         <div className="fixed inset-0 z-50 bg-black/70 p-4">
-          <div className="mx-auto flex h-full max-w-4xl flex-col rounded border border-neutral-700 bg-neutral-900">
-            <div className="flex items-center justify-between border-b border-neutral-700 px-3 py-2 text-xs text-neutral-300">
-              <span className="font-['Courier_New',monospace]">
-                edit line {editLine}
-              </span>
-              <button
-                className="rounded bg-neutral-700 px-2 py-1 hover:bg-neutral-600"
-                onClick={() => setEditOpen(false)}
-              >
-                close
-              </button>
+          <div className="mx-auto flex h-full max-w-6xl gap-3 rounded border border-neutral-700 bg-neutral-900 p-3">
+            <div className="flex min-w-0 flex-1 flex-col rounded border border-neutral-700">
+              <div className="flex items-center justify-between border-b border-neutral-700 px-3 py-2 text-xs text-neutral-300">
+                <span className="font-['Courier_New',monospace]">
+                  edit line {editLine}
+                </span>
+                <button
+                  className="rounded bg-neutral-700 px-2 py-1 hover:bg-neutral-600"
+                  onClick={() => setEditOpen(false)}
+                >
+                  close
+                </button>
+              </div>
+
+              <div className="grid grid-cols-[1fr_auto] gap-2 border-b border-neutral-700 p-2">
+                <input
+                  className="rounded bg-neutral-950 px-2 py-1 font-['Courier_New',monospace] text-xs text-neutral-100 outline-none"
+                  onChange={e => setHashInput(e.target.value)}
+                  placeholder="paste /?c=... or raw c hash"
+                  value={hashInput}
+                />
+                <button
+                  className="rounded bg-neutral-700 px-3 py-1 text-xs hover:bg-neutral-600"
+                  onClick={applyHashToEditor}
+                  type="button"
+                >
+                  from c
+                </button>
+              </div>
+
+              <textarea
+                className="h-full flex-1 resize-none bg-neutral-950 p-3 font-['Courier_New',monospace] text-xs text-neutral-100 outline-none"
+                onChange={e => setEditText(e.target.value)}
+                spellCheck={false}
+                value={editText}
+              />
+
+              <div className="flex justify-end gap-2 border-t border-neutral-700 px-3 py-2">
+                <button
+                  className="rounded bg-neutral-700 px-3 py-1.5 text-xs hover:bg-neutral-600"
+                  onClick={() => setEditOpen(false)}
+                >
+                  cancel
+                </button>
+                <button
+                  className="rounded bg-blue-600 px-3 py-1.5 text-xs hover:bg-blue-500 disabled:opacity-50"
+                  disabled={savingEdit}
+                  onClick={saveEditor}
+                >
+                  {savingEdit ? 'saving...' : 'save'}
+                </button>
+              </div>
             </div>
 
-            <textarea
-              className="h-full flex-1 resize-none bg-neutral-950 p-3 font-['Courier_New',monospace] text-xs text-neutral-100 outline-none"
-              onChange={e => setEditText(e.target.value)}
-              spellCheck={false}
-              value={editText}
-            />
-
-            <div className="flex justify-end gap-2 border-t border-neutral-700 px-3 py-2">
-              <button
-                className="rounded bg-neutral-700 px-3 py-1.5 text-xs hover:bg-neutral-600"
-                onClick={() => setEditOpen(false)}
-              >
-                cancel
-              </button>
-              <button
-                className="rounded bg-blue-600 px-3 py-1.5 text-xs hover:bg-blue-500 disabled:opacity-50"
-                disabled={savingEdit}
-                onClick={saveEditor}
-              >
-                {savingEdit ? 'saving...' : 'save'}
-              </button>
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between border-b border-neutral-700 px-3 py-2 text-xs text-neutral-300">
+                <span>preview</span>
+              </div>
+              <div className="w-80 overflow-hidden rounded border border-neutral-700 bg-neutral-950">
+                {editPreview ? (
+                  <img
+                    alt=""
+                    className="h-auto w-full object-contain"
+                    src={rasterUrl(editPreview)}
+                  />
+                ) : (
+                  <div className="p-3 font-['Courier_New',monospace] text-xs text-neutral-400">
+                    invalid json
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
