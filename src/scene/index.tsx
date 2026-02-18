@@ -136,7 +136,7 @@ function Inner() {
         value: 0
       }
     },
-    { duration: 0.01 }
+    {}
   )
 
   gradientAngleUniform.value = gradientAngle
