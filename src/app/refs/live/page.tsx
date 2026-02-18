@@ -1,19 +1,32 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-type LiveItem = {
-  id: string
-  imageUrl: string
-  added: boolean
-}
+import { SelectionOverlay } from '../components/SelectionOverlay'
+import { useDragSelect } from '../hooks/useDragSelect'
+import { useGridKeys } from '../hooks/useGridKeys'
+import { useToast } from '../hooks/useToast'
+
+type LiveItem = { id: string; imageUrl: string; added: boolean; raw: string }
 
 const POLL_MS = 2500
 
 export default function LiveRefsPage() {
   const [items, setItems] = useState<LiveItem[]>([])
+  const [reversed, setReversed] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [adding, setAdding] = useState<Set<string>>(new Set())
-  const [feed, setFeed] = useState<string[]>([])
+  const gridRef = useRef<HTMLDivElement>(null)
+  const toast = useToast()
+
+  const display = reversed ? [...items].reverse() : items
+  const keys = display.map(i => i.id)
+
+  const { cellRefs, handleClick, handleMouseDown, selRect } = useDragSelect(
+    keys,
+    selected,
+    setSelected
+  )
 
   const load = useCallback(async () => {
     const res = await fetch('/api/refs/live?limit=180')
@@ -22,8 +35,23 @@ export default function LiveRefsPage() {
       return
     }
 
-    const data = (await res.json()) as { items: LiveItem[] }
-    setItems(data.items)
+    const { items: fresh } = (await res.json()) as { items: LiveItem[] }
+
+    setItems(prev => {
+      const byId = new Map(prev.map(i => [i.id, i]))
+
+      for (const item of fresh) {
+        const cur = byId.get(item.id)
+
+        if (!cur) {
+          byId.set(item.id, item)
+        } else if (item.added && !cur.added) {
+          byId.set(item.id, { ...cur, added: true })
+        }
+      }
+
+      return [...byId.values()]
+    })
   }, [])
 
   useEffect(() => {
@@ -33,10 +61,6 @@ export default function LiveRefsPage() {
     return () => clearInterval(t)
   }, [load])
 
-  const pushFeed = useCallback((line: string) => {
-    setFeed(prev => [...prev.slice(-5), line])
-  }, [])
-
   const add = useCallback(
     async (id: string) => {
       if (adding.has(id)) {
@@ -44,7 +68,7 @@ export default function LiveRefsPage() {
       }
 
       setAdding(prev => new Set(prev).add(id))
-      pushFeed(`adding ${id}...`)
+      toast(`adding ${id}...`)
 
       try {
         const res = await fetch('/api/refs/live', {
@@ -53,23 +77,23 @@ export default function LiveRefsPage() {
           method: 'POST'
         })
 
-        const out = (await res.json()) as {
+        const { duplicate, error } = (await res.json()) as {
           duplicate?: boolean
           error?: string
         }
 
         if (!res.ok) {
-          pushFeed(out.error || `failed ${id}`)
+          toast(error || `failed ${id}`)
 
           return
         }
 
-        pushFeed(out.duplicate ? `already in refs ${id}` : `saved ${id}`)
+        toast(duplicate ? `already in refs ${id}` : `saved ${id}`)
         setItems(prev =>
-          prev.map(item => (item.id === id ? { ...item, added: true } : item))
+          prev.map(i => (i.id === id ? { ...i, added: true } : i))
         )
       } catch {
-        pushFeed(`failed ${id}`)
+        toast(`failed ${id}`)
       } finally {
         setAdding(prev => {
           const next = new Set(prev)
@@ -79,62 +103,118 @@ export default function LiveRefsPage() {
         })
       }
     },
-    [adding, pushFeed]
+    [adding, toast]
   )
 
+  const save = useCallback(
+    async (ids: string[]) => {
+      const pending = ids.filter(id =>
+        display.find(i => i.id === id && !i.added)
+      )
+
+      if (!pending.length) {
+        return
+      }
+
+      setSelected(new Set())
+
+      for (const id of pending) {
+        await add(id)
+      }
+    },
+    [display, add]
+  )
+
+  useGridKeys({
+    gridRef,
+    keys,
+    onOpen: id => {
+      const item = display.find(i => i.id === id)
+
+      if (item) {
+        window.open(`/?raw=${encodeURIComponent(item.raw)}`, '_blank')
+      }
+    },
+    onSave: save,
+    selected,
+    setSelected
+  })
+
+  const addable = display.filter(i => selected.has(i.id) && !i.added).length
+
   return (
-    <div className="min-h-[calc(100vh-36px)] bg-black p-1 text-white">
-      <div className="mb-2 flex items-center justify-between px-1 text-xs text-neutral-400">
-        <span>live {items.filter(x => !x.added).length}</span>
-        <span>poll {POLL_MS}ms</span>
-      </div>
+    <div className="min-h-[calc(100vh-36px)] select-none bg-black p-1 text-white">
+      <button
+        className="fixed right-3 top-1.5 z-50 px-1.5 py-0.5 text-xs text-neutral-500 hover:text-white"
+        onClick={() => setReversed(r => !r)}
+        title={reversed ? 'newest last' : 'newest first'}
+      >
+        {reversed ? '↑' : '↓'}
+      </button>
 
-      <div className="grid grid-cols-4 gap-1 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8">
-        {items.map(item => {
-          const busy = adding.has(item.id)
-
-          return (
-            <div
-              className={`group relative ring-1 ${
-                item.added ? 'ring-emerald-700/70' : 'ring-neutral-800'
-              }`}
-              key={item.id}
-            >
-              <div className="aspect-square w-full bg-neutral-900">
-                <img
-                  alt=""
-                  className="h-full w-full object-contain"
-                  loading="lazy"
-                  src={item.imageUrl}
-                />
-              </div>
-
-              <span className="absolute bottom-0 left-0 bg-black/65 px-1.5 py-0.5 font-['Courier_New',monospace] text-xs">
-                {item.id}
-              </span>
-
-              <button
-                className="absolute right-1 top-1 rounded bg-black/70 px-2 py-0.5 text-xs hover:bg-emerald-600 disabled:opacity-50"
-                disabled={item.added || busy}
-                onClick={() => void add(item.id)}
-                type="button"
-              >
-                {item.added ? 'added' : busy ? '...' : 'add'}
-              </button>
+      <div
+        className="grid grid-cols-4 gap-1 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8"
+        onMouseDown={handleMouseDown}
+        ref={gridRef}
+      >
+        {display.map(item => (
+          <div
+            className={`group relative cursor-pointer ${
+              selected.has(item.id)
+                ? 'ring-2 ring-blue-500'
+                : 'ring-1 ring-neutral-800'
+            }`}
+            key={item.id}
+            onClick={e => handleClick(item.id, e)}
+            onDoubleClick={() =>
+              window.open(`/?raw=${encodeURIComponent(item.raw)}`, '_blank')
+            }
+            ref={el => {
+              el
+                ? cellRefs.current.set(item.id, el)
+                : cellRefs.current.delete(item.id)
+            }}
+          >
+            <div className="aspect-square w-full bg-neutral-900">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt=""
+                className="pointer-events-none h-full w-full object-contain"
+                draggable={false}
+                loading="lazy"
+                src={item.imageUrl}
+              />
             </div>
-          )
-        })}
+
+            <span className="absolute bottom-0 left-0 bg-black/65 px-1.5 py-0.5 font-['Courier_New',monospace] text-xs">
+              {item.id}
+            </span>
+
+            <button
+              className="absolute right-1 top-1 bg-black/70 px-2 py-0.5 text-xs opacity-0 hover:bg-neutral-600 disabled:opacity-50 group-hover:opacity-100"
+              disabled={item.added || adding.has(item.id)}
+              onClick={e => {
+                e.stopPropagation()
+                void add(item.id)
+              }}
+              type="button"
+            >
+              {item.added ? 'added' : adding.has(item.id) ? '...' : 'add'}
+            </button>
+          </div>
+        ))}
       </div>
 
-      {feed.length > 0 && (
-        <div className="fixed right-4 top-4 z-40 rounded bg-black/80 px-3 py-2 text-xs text-white shadow">
-          <div className="space-y-0.5 font-['Courier_New',monospace]">
-            {feed.map((line, i) => (
-              <div key={`${line}-${i}`}>{line}</div>
-            ))}
-          </div>
-        </div>
+      {addable > 0 && (
+        <button
+          className="fixed bottom-4 left-1/2 z-20 -translate-x-1/2 bg-neutral-800 px-4 py-1.5 text-sm hover:bg-neutral-700"
+          onClick={() => void save([...selected])}
+        >
+          add {addable} (s)
+        </button>
       )}
+
+      <SelectionOverlay rect={selRect} />
     </div>
   )
 }

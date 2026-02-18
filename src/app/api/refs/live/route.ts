@@ -125,8 +125,7 @@ const readLatest = (limit: number) => {
     return readdirSync(PARAMS_DIR)
       .filter(name => /^\d+\.json$/.test(name))
       .sort()
-      .reverse()
-      .slice(0, limit)
+      .slice(-limit)
   } catch {
     return []
   }
@@ -149,7 +148,8 @@ export async function GET(req: Request) {
     return {
       added: refNorms.has(norm(raw)),
       id,
-      imageUrl: `/api/refs/live/image/${id}`
+      imageUrl: `/api/refs/live/image/${id}`,
+      raw
     }
   })
 
