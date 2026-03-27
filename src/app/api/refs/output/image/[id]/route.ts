@@ -1,6 +1,6 @@
 import { resolveRoot, serveImage } from '../../../_feed'
 
-const IMAGES = resolveRoot('data/images')
+const IMAGES = resolveRoot('output/images')
 
 export async function GET(
   _req: Request,

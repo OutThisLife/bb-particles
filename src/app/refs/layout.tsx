@@ -28,6 +28,9 @@ export default function RefsLayout({
             <Link className={tab('/refs/live')} href="/refs/live">
               live
             </Link>
+            <Link className={tab('/refs/output')} href="/refs/output">
+              output
+            </Link>
           </div>
         </header>
 
