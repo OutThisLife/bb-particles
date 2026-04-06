@@ -176,15 +176,25 @@ export const decode = (str: string): Record<string, EncodedEntry> => {
 }
 
 // Flat params for headless rendering (no leva structure)
-export type DitherParams = {
+export type NoiseParams = {
   enabled: boolean
-  type: string
-  matrix: number
-  colors: number
-  strength: number
+  density: number
+  opacity: number
+  size: number
+}
+
+export type CrtMask = 'none' | 'shadow' | 'grille' | 'stretched' | 'vga'
+
+export type CrtParams = {
+  enabled: boolean
+  bleed: number
+  bloom: number
+  brightness: number
+  mask: CrtMask
+  maskStrength: number
   scale: number
-  bias: number
-  grayscale: boolean
+  scanlines: number
+  warp: number
 }
 
 export type SceneParams = {
@@ -212,7 +222,8 @@ export type SceneParams = {
   rotation: number
   scale: number
   layers: LayerParams[]
-  dither: DitherParams
+  noise: NoiseParams
+  crt: CrtParams
 }
 
 export type LayerParams = {
@@ -229,23 +240,31 @@ export type LayerParams = {
   startAngle?: number
 }
 
-export const DEFAULT_DITHER: DitherParams = {
-  bias: 0.57,
-  colors: 6,
+export const DEFAULT_NOISE: NoiseParams = {
   enabled: false,
-  grayscale: false,
-  matrix: 4,
-  scale: 8,
-  strength: 0.78,
-  type: 'bayer'
+  density: 0.11,
+  opacity: 0.11,
+  size: 0.3
+}
+
+export const DEFAULT_CRT: CrtParams = {
+  bleed: 0.4,
+  bloom: 0.15,
+  brightness: 1,
+  enabled: false,
+  mask: 'grille',
+  maskStrength: 0.5,
+  scale: 1.5,
+  scanlines: 0.3,
+  warp: 0
 }
 
 export const DEFAULT_PARAMS: SceneParams = {
   alphaFactor: 0.68,
   alphaProgression: 'exponential',
   color: '#efeddb',
+  crt: DEFAULT_CRT,
   debug: false,
-  dither: DEFAULT_DITHER,
   geometry: 'ring',
   geoWidth: 0.041,
   gradientAngle: 0,
@@ -257,6 +276,7 @@ export const DEFAULT_PARAMS: SceneParams = {
       scale: { x: -1, y: 1 }
     }
   ],
+  noise: DEFAULT_NOISE,
   origin: 'top-center',
   position: { x: 0, y: -0.5 },
   positionCoupled: true,
@@ -274,10 +294,93 @@ export const DEFAULT_PARAMS: SceneParams = {
   yStep: 0
 }
 
+const CRT_MASKS = new Set<string>([
+  'none',
+  'shadow',
+  'grille',
+  'stretched',
+  'vga'
+])
+
+/** Training JSON / refs use noiseEnabled, crtBleed, … — lift into nested noise/crt for encode. */
+export function withLegacyFlatNoiseCrt(
+  params: Partial<SceneParams> & Record<string, unknown>
+): Partial<SceneParams> {
+  const p = params
+  const out: Partial<SceneParams> = { ...p }
+
+  if (
+    !p.noise &&
+    ('noiseEnabled' in p ||
+      'noiseDensity' in p ||
+      'noiseOpacity' in p ||
+      'noiseSize' in p)
+  ) {
+    out.noise = {
+      enabled: Boolean(p.noiseEnabled),
+      density:
+        typeof p.noiseDensity === 'number'
+          ? p.noiseDensity
+          : DEFAULT_NOISE.density,
+      opacity:
+        typeof p.noiseOpacity === 'number'
+          ? p.noiseOpacity
+          : DEFAULT_NOISE.opacity,
+      size:
+        typeof p.noiseSize === 'number' ? p.noiseSize : DEFAULT_NOISE.size
+    }
+  }
+
+  if (
+    !p.crt &&
+    ('crtEnabled' in p ||
+      'crtBleed' in p ||
+      'crtBloom' in p ||
+      'crtBrightness' in p ||
+      'crtMask' in p ||
+      'crtMaskStrength' in p ||
+      'crtScale' in p ||
+      'crtScanlines' in p ||
+      'crtWarp' in p)
+  ) {
+    const rawMask = p.crtMask
+    const mask =
+      typeof rawMask === 'string' && CRT_MASKS.has(rawMask)
+        ? (rawMask as CrtMask)
+        : DEFAULT_CRT.mask
+
+    out.crt = {
+      enabled: Boolean(p.crtEnabled),
+      bleed:
+        typeof p.crtBleed === 'number' ? p.crtBleed : DEFAULT_CRT.bleed,
+      bloom:
+        typeof p.crtBloom === 'number' ? p.crtBloom : DEFAULT_CRT.bloom,
+      brightness:
+        typeof p.crtBrightness === 'number'
+          ? p.crtBrightness
+          : DEFAULT_CRT.brightness,
+      mask,
+      maskStrength:
+        typeof p.crtMaskStrength === 'number'
+          ? p.crtMaskStrength
+          : DEFAULT_CRT.maskStrength,
+      scale: typeof p.crtScale === 'number' ? p.crtScale : DEFAULT_CRT.scale,
+      scanlines:
+        typeof p.crtScanlines === 'number'
+          ? p.crtScanlines
+          : DEFAULT_CRT.scanlines,
+      warp: typeof p.crtWarp === 'number' ? p.crtWarp : DEFAULT_CRT.warp
+    }
+  }
+
+  return out
+}
+
 // Convert flat SceneParams back to leva format for encoding
 export const fromSceneParams = (
-  params: Partial<SceneParams>
+  raw: Partial<SceneParams> & Record<string, unknown>
 ): Record<string, EncodedEntry> => {
+  const params = withLegacyFlatNoiseCrt(raw)
   const result: Record<string, EncodedEntry> = {}
 
   const set = (key: string, value: any) => {
@@ -310,16 +413,23 @@ export const fromSceneParams = (
   set('Scene.rotation', params.rotation)
   set('Scene.scale', params.scale)
 
-  // Dither params
-  if (params.dither) {
-    set('Dither.enabled', params.dither.enabled)
-    set('Dither.type', params.dither.type)
-    set('Dither.matrix', params.dither.matrix)
-    set('Dither.colors', params.dither.colors)
-    set('Dither.strength', params.dither.strength)
-    set('Dither.scale', params.dither.scale)
-    set('Dither.bias', params.dither.bias)
-    set('Dither.grayscale', params.dither.grayscale)
+  if (params.noise) {
+    set('Noise.enabled', params.noise.enabled)
+    set('Noise.density', params.noise.density)
+    set('Noise.opacity', params.noise.opacity)
+    set('Noise.size', params.noise.size)
+  }
+
+  if (params.crt) {
+    set('CRT.enabled', params.crt.enabled)
+    set('CRT.bleed', params.crt.bleed)
+    set('CRT.bloom', params.crt.bloom)
+    set('CRT.brightness', params.crt.brightness)
+    set('CRT.mask', params.crt.mask)
+    set('CRT.maskStrength', params.crt.maskStrength)
+    set('CRT.scale', params.crt.scale)
+    set('CRT.scanlines', params.crt.scanlines)
+    set('CRT.warp', params.crt.warp)
   }
 
   params.layers?.forEach((layer, i) => {
@@ -442,22 +552,29 @@ export const toSceneParams = (
       DEFAULT_PARAMS.alphaProgression
     ),
     color: get('Element.color', DEFAULT_PARAMS.color),
-    debug: get('Scene.debug', DEFAULT_PARAMS.debug),
-    dither: {
-      bias: get('Dither.bias', DEFAULT_DITHER.bias),
-      colors: get('Dither.colors', DEFAULT_DITHER.colors),
-      enabled: get('Dither.enabled', DEFAULT_DITHER.enabled),
-      grayscale: get('Dither.grayscale', DEFAULT_DITHER.grayscale),
-      matrix: get('Dither.matrix', DEFAULT_DITHER.matrix),
-      scale: get('Dither.scale', DEFAULT_DITHER.scale),
-      strength: get('Dither.strength', DEFAULT_DITHER.strength),
-      type: get('Dither.type', DEFAULT_DITHER.type)
+    crt: {
+      bleed: get('CRT.bleed', DEFAULT_CRT.bleed),
+      bloom: get('CRT.bloom', DEFAULT_CRT.bloom),
+      brightness: get('CRT.brightness', DEFAULT_CRT.brightness),
+      enabled: get('CRT.enabled', DEFAULT_CRT.enabled),
+      mask: get('CRT.mask', DEFAULT_CRT.mask),
+      maskStrength: get('CRT.maskStrength', DEFAULT_CRT.maskStrength),
+      scale: get('CRT.scale', DEFAULT_CRT.scale),
+      scanlines: get('CRT.scanlines', DEFAULT_CRT.scanlines),
+      warp: get('CRT.warp', DEFAULT_CRT.warp)
     },
+    debug: get('Scene.debug', DEFAULT_PARAMS.debug),
     geometry: get('Element.geometry', DEFAULT_PARAMS.geometry),
     geoWidth: get('Element.geoWidth', DEFAULT_PARAMS.geoWidth),
     gradientAngle: get('Element.gradientAngle', DEFAULT_PARAMS.gradientAngle),
     gradientRange: get('Element.gradientRange', DEFAULT_PARAMS.gradientRange),
     layers,
+    noise: {
+      density: get('Noise.density', DEFAULT_NOISE.density),
+      enabled: get('Noise.enabled', DEFAULT_NOISE.enabled),
+      opacity: get('Noise.opacity', DEFAULT_NOISE.opacity),
+      size: get('Noise.size', DEFAULT_NOISE.size)
+    },
     origin: get('Spatial.origin', DEFAULT_PARAMS.origin),
     position: get('Scene.position', DEFAULT_PARAMS.position),
     positionCoupled: get(

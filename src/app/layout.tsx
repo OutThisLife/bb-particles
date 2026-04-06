@@ -1,14 +1,16 @@
 import './globals.css'
 
 import type { Metadata } from 'next'
-import type { ReactNode } from 'react'
+import NextTopLoader from 'nextjs-toploader'
+import * as React from 'react'
 
-export default function RootLayout({
-  children
-}: Readonly<{ children: ReactNode }>) {
+export default function RootLayout({ children }: React.PropsWithChildren) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <NextTopLoader color="#666" height={2} showSpinner={false} />
+        {children}
+      </body>
     </html>
   )
 }

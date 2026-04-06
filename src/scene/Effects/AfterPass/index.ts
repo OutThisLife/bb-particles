@@ -24,6 +24,10 @@ export class CustomAfterPass extends Pass {
   private copyFsMaterial: THREE.ShaderMaterial
   private copyFsQuad: FullScreenQuad
 
+  set damp(v: number) {
+    this.uniforms.damp.value = v
+  }
+
   constructor(damp = 0.96) {
     super()
 

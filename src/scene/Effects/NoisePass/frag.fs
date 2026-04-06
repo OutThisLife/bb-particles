@@ -14,11 +14,14 @@ float hash(vec2 p) {
 
 void main() {
   vec4 tex = texture2D(tDiffuse, vUv);
+  vec3 color = tex.rgb;
+
   float s = max(size * (resolution.x / 1024.0), 1.0);
   vec2 cell = floor(vUv * resolution / s);
   float select = hash(cell);
   float value = hash(cell + vec2(127.1, 311.7)) - 0.5;
   float amount = step(1.0 - density, select) * opacity;
-  vec3 color = clamp(tex.rgb + vec3(value * amount), 0.0, 1.0);
+  color = clamp(color + vec3(value * amount), 0.0, 1.0);
+
   gl_FragColor = vec4(color, tex.a);
 }

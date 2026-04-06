@@ -42,7 +42,6 @@ export function useSmoothControls<T extends Record<string, any>>(
     }
   }, [schema, args, hydrate])
 
-  // Sync with leva store when values change externally (e.g. URL hydration)
   const storeData = levaStore.useStore(s => s.data)
   useEffect(() => {
     const synced: Partial<R> = {}
@@ -52,6 +51,10 @@ export function useSmoothControls<T extends Record<string, any>>(
       const storeVal = (storeData[key] as any)?.value
 
       if (storeVal !== undefined && storeVal !== args[k as keyof R]) {
+        if (gsap.getTweensOf(args).some(tw => tw.vars && Object.hasOwn(tw.vars, k))) {
+          continue
+        }
+
         synced[k as keyof R] = storeVal
       }
     }

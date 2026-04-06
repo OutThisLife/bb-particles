@@ -1,6 +1,4 @@
-type Rect = { left: number; top: number; width: number; height: number }
-
-export function SelectionOverlay({ rect }: { rect: Rect | null }) {
+export function SelectionOverlay({ rect }: SelectionOverlayProps) {
   if (!rect || rect.width < 4 || rect.height < 4) {
     return null
   }
@@ -11,4 +9,15 @@ export function SelectionOverlay({ rect }: { rect: Rect | null }) {
       style={rect}
     />
   )
+}
+
+interface OverlayRect {
+  height: number
+  left: number
+  top: number
+  width: number
+}
+
+interface SelectionOverlayProps {
+  rect: OverlayRect | null
 }

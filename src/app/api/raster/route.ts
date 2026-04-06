@@ -136,8 +136,21 @@ async function acquire(): Promise<Page> {
     return createPage()
   }
 
-  return new Promise<Page>(resolve => {
-    queue.push(resolve)
+  return new Promise<Page>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const idx = queue.indexOf(entry)
+
+      if (idx >= 0) queue.splice(idx, 1)
+
+      reject(new Error('pool timeout'))
+    }, 30_000)
+
+    const entry = (page: Page) => {
+      clearTimeout(timer)
+      resolve(page)
+    }
+
+    queue.push(entry)
     pump()
   })
 }
@@ -152,16 +165,7 @@ function release(page: Page) {
     return
   }
 
-  // Reload to clear Leva state so params don't bleed between renders
-  page
-    .goto(`${BASE_URL}/render`, { timeout: 30_000, waitUntil: 'load' })
-    .then(() =>
-      page.waitForFunction(() => window.__RENDER_READY__ === true, {
-        timeout: 60_000
-      })
-    )
-    .then(() => give(page))
-    .catch(() => discard(page))
+  give(page)
 }
 
 async function discard(page: Page) {
@@ -188,9 +192,12 @@ async function render(raw: Record<string, unknown>, size: number) {
       ? ({ height: 1024, scale: size / 1024, width: 1024, x: 0, y: 0 } as any)
       : undefined
 
-    await page.evaluate(e => window.__updateParams?.(e), enc)
+    await page.goto(`${BASE_URL}/render?c=${encodeURIComponent(enc)}`, {
+      timeout: 30_000,
+      waitUntil: 'load'
+    })
     await page.waitForFunction(() => window.__RENDER_READY__ === true, {
-      timeout: 10_000
+      timeout: 30_000
     })
 
     const buffer = await page.screenshot({

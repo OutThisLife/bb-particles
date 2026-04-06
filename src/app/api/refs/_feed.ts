@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, writeFileSync } from 'fs'
+import { readdirSync, readFileSync, unlinkSync, writeFileSync } from 'fs'
 import { resolve } from 'path'
 
 import { norm } from '@/utils/norm'
@@ -14,15 +14,16 @@ const PREFIX_MAP: Record<string, string> = {
   alphaFactor: 'Scalars.alphaFactor',
   alphaProgression: 'Scalars.alphaProgression',
   color: 'Element.color',
+  crtBleed: 'CRT.bleed',
+  crtBloom: 'CRT.bloom',
+  crtBrightness: 'CRT.brightness',
+  crtEnabled: 'CRT.enabled',
+  crtMask: 'CRT.mask',
+  crtMaskStrength: 'CRT.maskStrength',
+  crtScale: 'CRT.scale',
+  crtScanlines: 'CRT.scanlines',
+  crtWarp: 'CRT.warp',
   debug: 'Scene.debug',
-  ditherBias: 'Dither.bias',
-  ditherColors: 'Dither.colors',
-  ditherEnabled: 'Dither.enabled',
-  ditherGrayscale: 'Dither.grayscale',
-  ditherMatrix: 'Dither.matrix',
-  ditherScale: 'Dither.scale',
-  ditherStrength: 'Dither.strength',
-  ditherType: 'Dither.type',
   geometry: 'Element.geometry',
   geoWidth: 'Element.geoWidth',
   gradientAngle: 'Element.gradientAngle',
@@ -58,31 +59,12 @@ export const toPrefixed = (rawFlat: Record<string, unknown>) => {
     }
   }
 
-  const nestedDither = flat.dither
-
-  if (nestedDither && typeof nestedDither === 'object') {
-    const d = nestedDither as Record<string, unknown>
-    const ditherKeys: [string, string][] = [
-      ['enabled', 'Dither.enabled'],
-      ['type', 'Dither.type'],
-      ['matrix', 'Dither.matrix'],
-      ['colors', 'Dither.colors'],
-      ['strength', 'Dither.strength'],
-      ['scale', 'Dither.scale'],
-      ['bias', 'Dither.bias'],
-      ['grayscale', 'Dither.grayscale']
-    ]
-
-    for (const [k, prefixed] of ditherKeys) {
-      if (k in d) {
-        result[prefixed] = d[k]
-      }
-    }
-  }
-
   const layers = Array.isArray(flat.layers) ? flat.layers : []
   layers.forEach((layer, i) => {
-    if (!layer || typeof layer !== 'object') return
+    if (!layer || typeof layer !== 'object') {
+      return
+    }
+
     const pre = `Groups.g${i}.g${i}-`
     Object.entries(layer as Record<string, unknown>).forEach(([k, v]) => {
       result[`${pre}${k}`] = v
@@ -95,13 +77,21 @@ export const toPrefixed = (rawFlat: Record<string, unknown>) => {
 export const readRefNormSet = () => {
   try {
     const text = readFileSync(REFS_PATH, 'utf-8').trim()
-    if (!text) return new Set<string>()
+
+    if (!text) {
+      return new Set<string>()
+    }
+
     const out = new Set<string>()
+
     for (const line of text.split('\n').filter(Boolean)) {
       try {
         out.add(norm(line))
-      } catch {}
+      } catch {
+        continue
+      }
     }
+
     return out
   } catch {
     return new Set<string>()
@@ -110,33 +100,71 @@ export const readRefNormSet = () => {
 
 export const resolveRoot = (...parts: string[]) => resolve(ROOT, ...parts)
 
+const stripExt = (n: string) => n.replace(/\.json$/, '')
+
 export const feedGET = (
   paramsDir: string,
   imagePrefix: string,
   req: Request
 ) => {
+  const url = new URL(req.url)
+
   const limit = Math.max(
     1,
-    Math.min(500, Number(new URL(req.url).searchParams.get('limit')) || 120)
+    Math.min(500, Number(url.searchParams.get('limit')) || 200)
   )
+
+  const after = url.searchParams.get('after')
+  const before = url.searchParams.get('before')
+  const asc = url.searchParams.get('sort') === 'asc'
 
   const refNorms = readRefNormSet()
 
-  let files: string[]
+  let allFiles: string[]
+
   try {
-    files = readdirSync(paramsDir)
+    allFiles = readdirSync(paramsDir)
       .filter(name => /^\d+\.json$/.test(name))
       .sort()
-      .slice(-limit)
   } catch {
-    files = []
+    allFiles = []
   }
 
-  const items = files.map(name => {
-    const id = name.replace(/\.json$/, '')
+  let slice: string[]
+  let hasMore = false
+
+  if (asc) {
+    if (after) {
+      const newer = allFiles.filter(f => stripExt(f) > after)
+      hasMore = newer.length > limit
+      slice = newer.slice(0, limit)
+    } else if (before) {
+      slice = allFiles.filter(f => stripExt(f) < before).slice(-limit)
+    } else {
+      hasMore = allFiles.length > limit
+      slice = allFiles.slice(0, limit)
+    }
+  } else {
+    if (after) {
+      slice = allFiles.filter(f => stripExt(f) > after)
+    } else if (before) {
+      const older = allFiles.filter(f => stripExt(f) < before)
+      hasMore = older.length > limit
+      slice = older.slice(-limit)
+    } else {
+      hasMore = allFiles.length > limit
+      slice = allFiles.slice(-limit)
+    }
+
+    slice.reverse()
+  }
+
+  const items = slice.map(name => {
+    const id = stripExt(name)
     const flat = JSON.parse(readFileSync(resolve(paramsDir, name), 'utf-8'))
     const params = toPrefixed(flat)
     const raw = JSON.stringify(params)
+
     return {
       added: refNorms.has(norm(raw)),
       id,
@@ -145,7 +173,7 @@ export const feedGET = (
     }
   })
 
-  return Response.json({ items })
+  return Response.json({ hasMore, items, total: allFiles.length })
 }
 
 export const feedPOST = async (paramsDir: string, req: Request) => {
@@ -158,6 +186,7 @@ export const feedPOST = async (paramsDir: string, req: Request) => {
 
   const path = resolve(paramsDir, `${safeId.padStart(6, '0')}.json`)
   let flat: Record<string, unknown>
+
   try {
     flat = JSON.parse(readFileSync(path, 'utf-8'))
   } catch {
@@ -190,13 +219,53 @@ export const feedPOST = async (paramsDir: string, req: Request) => {
   return Response.json({ duplicate: false, id: safeId, total })
 }
 
+export const feedDELETE = async (
+  paramsDir: string,
+  imagesDir: string,
+  req: Request
+) => {
+  const { ids } = (await req.json()) as { ids?: string[] }
+
+  if (!ids?.length) {
+    return Response.json({ error: 'No ids' }, { status: 400 })
+  }
+
+  let removed = 0
+
+  for (const id of ids) {
+    const safeId = (id || '').replace(/[^0-9]/g, '')
+
+    if (!safeId) {continue}
+
+    const padded = safeId.padStart(6, '0')
+
+    for (const file of [
+      resolve(paramsDir, `${padded}.json`),
+      resolve(imagesDir, `${padded}.png`)
+    ]) {
+      try {
+        unlinkSync(file)
+      } catch {}
+    }
+
+    removed++
+  }
+
+  return Response.json({ removed })
+}
+
 export const serveImage = (imagesDir: string, id: string) => {
   const safeId = (id || '').replace(/[^0-9]/g, '')
-  if (!safeId) return new Response('Bad id', { status: 400 })
+
+  if (!safeId) {
+    return new Response('Bad id', { status: 400 })
+  }
 
   const file = resolve(imagesDir, `${safeId.padStart(6, '0')}.png`)
+
   try {
     const buf = readFileSync(file)
+
     return new Response(new Uint8Array(buf), {
       headers: { 'Cache-Control': 'no-store', 'Content-Type': 'image/png' }
     })

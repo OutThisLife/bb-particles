@@ -151,8 +151,11 @@ function getInitParams() {
 export const initVal = <T>(key: string, def: T): T =>
   (getInitParams()[key]?.value as T) ?? def
 
-export const initDisabled = (key: string, def = true): boolean =>
-  getInitParams()[key]?.disabled ?? def
+export const initDisabled = (key: string, def = true): boolean => {
+  const entry = getInitParams()[key]
+
+  return entry ? (entry.disabled ?? false) : def
+}
 
 function applyParams(enc: string) {
   window.__RENDER_READY__ = false

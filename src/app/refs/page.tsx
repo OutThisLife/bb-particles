@@ -2,40 +2,27 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { decode } from '@/utils/codec'
-
+import { GridImage } from './components/GridImage'
+import { RefEditor } from './components/RefEditor'
 import { SelectionOverlay } from './components/SelectionOverlay'
 import { useDragSelect } from './hooks/useDragSelect'
 import { useGridKeys } from './hooks/useGridKeys'
-import { useToast } from './hooks/useToast'
+import { toast } from './stores/toast'
 
-type Ref = {
-  line: number
-  params: Record<string, unknown>
-  encoded: string
-  raw: string
-  thumbUrl?: string
-}
-
-const rasterUrl = (p: Record<string, unknown>) =>
-  `/api/raster?size=256&params=${encodeURIComponent(JSON.stringify(p))}`
-
-const openUrl = (raw: string) =>
+const openRaw = (raw: string) =>
   window.open(`/?raw=${encodeURIComponent(raw)}`, '_blank')
 
 export default function RefsPage() {
   const [refs, setRefs] = useState<Ref[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [editOpen, setEditOpen] = useState(false)
-  const [editLine, setEditLine] = useState<number | null>(null)
-  const [editExpectedRaw, setEditExpectedRaw] = useState('')
-  const [editText, setEditText] = useState('')
-  const [savingEdit, setSavingEdit] = useState(false)
-  const [hashInput, setHashInput] = useState('')
   const [thumbFails, setThumbFails] = useState<Set<string>>(new Set())
 
+  const [editing, setEditing] = useState<RefEditSession | null>(null)
+
   const gridRef = useRef<HTMLDivElement>(null)
-  const toast = useToast()
+  const busy = useRef(false)
+  const pendingRaws = useRef<Set<string>>(new Set())
+  const pendingLines = useRef<Map<string, number>>(new Map())
 
   const keys = refs.map(r => r.raw)
 
@@ -44,10 +31,6 @@ export default function RefsPage() {
     selected,
     setSelected
   )
-
-  const busy = useRef(false)
-  const pendingRaws = useRef<Set<string>>(new Set())
-  const pendingLines = useRef<Map<string, number>>(new Map())
 
   const refetch = useCallback(() => {
     fetch('/api/refs')
@@ -77,12 +60,12 @@ export default function RefsPage() {
         const raws = [...pendingRaws.current]
         pendingRaws.current.clear()
 
-        const lines = raws
-          .map(r => pendingLines.current.get(r) ?? -1)
-          .filter(l => l > 0)
-
         const res = await fetch('/api/refs', {
-          body: JSON.stringify({ lines }),
+          body: JSON.stringify({
+            lines: raws
+              .map(r => pendingLines.current.get(r) ?? -1)
+              .filter(l => l > 0)
+          }),
           headers: { 'Content-Type': 'application/json' },
           method: 'DELETE'
         })
@@ -126,103 +109,15 @@ export default function RefsPage() {
     void flush()
   }
 
-  // ── Keys ──
-
   useGridKeys({
-    disabled: editOpen,
+    disabled: !!editing,
     gridRef,
     keys,
     onDelete: enqueueDelete,
-    onOpen: openUrl,
+    onOpen: openRaw,
     selected,
     setSelected
   })
-
-  useEffect(() => {
-    if (!editOpen) {
-      return
-    }
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setEditOpen(false)
-      }
-    }
-
-    window.addEventListener('keydown', onKey)
-
-    return () => window.removeEventListener('keydown', onKey)
-  }, [editOpen])
-
-  // ── Editor ──
-
-  async function saveEditor() {
-    if (!editLine || savingEdit) {
-      return
-    }
-
-    setSavingEdit(true)
-
-    try {
-      const raw = JSON.stringify(JSON.parse(editText))
-
-      const res = await fetch('/api/refs', {
-        body: JSON.stringify({
-          expectedRaw: editExpectedRaw,
-          line: editLine,
-          raw
-        }),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'PATCH'
-      })
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        toast((err as { error?: string }).error ?? 'save failed')
-
-        return
-      }
-
-      await refetch()
-      setEditOpen(false)
-      toast(`saved line ${editLine}`)
-    } catch {
-      toast('invalid json')
-    } finally {
-      setSavingEdit(false)
-    }
-  }
-
-  function applyHash() {
-    let c = hashInput.trim()
-
-    try {
-      c = new URL(c).searchParams.get('c') || c
-    } catch {
-      /* url parse */
-    }
-
-    if (c.startsWith('c=')) {
-      c = c.slice(2)
-    }
-
-    if (!c) {
-      return toast('missing c hash')
-    }
-
-    try {
-      const flat = Object.fromEntries(
-        Object.entries(decode(c)).map(([k, v]) => [k, v.value])
-      )
-
-      setEditText(JSON.stringify(flat, null, 2))
-      toast('loaded hash into editor')
-    } catch {
-      toast('invalid c hash')
-    }
-  }
-
-  // ── Render ──
 
   return (
     <div className="min-h-[calc(100vh-36px)] select-none bg-black text-white">
@@ -245,31 +140,24 @@ export default function RefsPage() {
               navigator.clipboard.writeText(r.encoded)
               toast(`copied hash ${i + 1}`)
             }}
-            onDoubleClick={() => openUrl(r.raw)}
+            onDoubleClick={() => openRaw(r.raw)}
             ref={el => {
               el
                 ? cellRefs.current.set(r.raw, el)
                 : cellRefs.current.delete(r.raw)
             }}
           >
-            <div className="aspect-square w-full bg-neutral-900">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                alt=""
-                className="pointer-events-none h-full w-full object-contain"
-                draggable={false}
-                loading="lazy"
-                onError={() => setThumbFails(prev => new Set(prev).add(r.raw))}
-                src={
-                  r.thumbUrl && !thumbFails.has(r.raw)
-                    ? r.thumbUrl
-                    : rasterUrl(r.params)
-                }
-              />
-            </div>
+            <GridImage
+              onError={() => setThumbFails(prev => new Set(prev).add(r.raw))}
+              src={
+                r.thumbUrl && !thumbFails.has(r.raw)
+                  ? r.thumbUrl
+                  : `/api/raster?size=256&params=${encodeURIComponent(JSON.stringify(r.params))}`
+              }
+            />
 
             <span className="absolute bottom-0 left-0 bg-black/60 px-1.5 py-0.5 text-xs tabular-nums">
-              {i + 1}
+              {r.line}
             </span>
 
             <button
@@ -290,14 +178,14 @@ export default function RefsPage() {
                 e.stopPropagation()
 
                 try {
-                  setEditText(JSON.stringify(JSON.parse(r.raw), null, 2))
+                  setEditing({
+                    line: r.line,
+                    raw: r.raw,
+                    text: JSON.stringify(JSON.parse(r.raw), null, 2)
+                  })
                 } catch {
-                  setEditText(r.raw)
+                  setEditing({ line: r.line, raw: r.raw, text: r.raw })
                 }
-
-                setEditLine(r.line)
-                setEditExpectedRaw(r.raw)
-                setEditOpen(true)
               }}
             >
               e
@@ -315,63 +203,34 @@ export default function RefsPage() {
         </button>
       )}
 
-      {editOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 p-4">
-          <div className="mx-auto flex h-full max-w-2xl flex-col border border-neutral-700 bg-neutral-900 p-3">
-            <div className="flex items-center justify-between border-b border-neutral-700 px-3 py-2 text-xs text-neutral-300">
-              <span className="font-['Courier_New',monospace]">
-                edit line {editLine}
-              </span>
-              <button
-                className="bg-neutral-700 px-2 py-1 hover:bg-neutral-600"
-                onClick={() => setEditOpen(false)}
-              >
-                close
-              </button>
-            </div>
-
-            <div className="grid grid-cols-[1fr_auto] gap-2 border-b border-neutral-700 p-2">
-              <input
-                className="bg-neutral-950 px-2 py-1 font-['Courier_New',monospace] text-xs text-neutral-100 outline-none"
-                onChange={e => setHashInput(e.target.value)}
-                placeholder="paste /?c=... or raw c hash"
-                value={hashInput}
-              />
-              <button
-                className="bg-neutral-700 px-3 py-1 text-xs hover:bg-neutral-600"
-                onClick={applyHash}
-              >
-                from c
-              </button>
-            </div>
-
-            <textarea
-              className="h-full flex-1 resize-none bg-neutral-950 p-3 font-['Courier_New',monospace] text-xs text-neutral-100 outline-none"
-              onChange={e => setEditText(e.target.value)}
-              spellCheck={false}
-              value={editText}
-            />
-
-            <div className="flex justify-end gap-2 border-t border-neutral-700 px-3 py-2">
-              <button
-                className="bg-neutral-700 px-3 py-1.5 text-xs hover:bg-neutral-600"
-                onClick={() => setEditOpen(false)}
-              >
-                cancel
-              </button>
-              <button
-                className="bg-neutral-800 px-3 py-1.5 text-xs hover:bg-neutral-700 disabled:opacity-50"
-                disabled={savingEdit}
-                onClick={saveEditor}
-              >
-                {savingEdit ? 'saving...' : 'save'}
-              </button>
-            </div>
-          </div>
-        </div>
+      {editing && (
+        <RefEditor
+          expectedRaw={editing.raw}
+          initialText={editing.text}
+          line={editing.line}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null)
+            refetch()
+          }}
+        />
       )}
 
       <SelectionOverlay rect={selRect} />
     </div>
   )
+}
+
+interface Ref {
+  encoded: string
+  line: number
+  params: Record<string, unknown>
+  raw: string
+  thumbUrl?: string
+}
+
+interface RefEditSession {
+  line: number
+  raw: string
+  text: string
 }

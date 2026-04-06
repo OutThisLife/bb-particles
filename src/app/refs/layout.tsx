@@ -2,40 +2,42 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import * as React from 'react'
 
-import { ToastProvider } from './hooks/useToast'
+import { Toasts } from './stores/toast'
 
-export default function RefsLayout({
-  children
-}: {
-  children: React.ReactNode
-}) {
+const tabs = [
+  { href: '/refs', label: 'refs' },
+  { href: '/refs/live', label: 'live' },
+  { href: '/refs/output', label: 'output' },
+  { href: '/refs/runs', label: 'runs' }
+]
+
+export default function RefsLayout({ children }: React.PropsWithChildren) {
   const path = usePathname()
 
-  const tab = (href: string) =>
-    `px-2 py-1 text-xs font-bold font-mono ${
-      path === href ? 'text-white' : 'text-neutral-500 hover:text-neutral-300'
-    }`
-
   return (
-    <ToastProvider>
-      <div className="min-h-screen bg-black text-white">
-        <header className="sticky top-0 z-40 border-b border-neutral-800/80 bg-black/90 backdrop-blur">
-          <div className="mx-auto flex h-9 items-center justify-center gap-3">
-            <Link className={tab('/refs')} href="/refs">
-              refs
+    <div className="min-h-screen bg-black text-white">
+      <header className="sticky top-0 z-40 border-b border-neutral-800/80 bg-black/90 backdrop-blur">
+        <div className="mx-auto flex h-9 items-center justify-center gap-3">
+          {tabs.map(t => (
+            <Link
+              className={`px-2 py-1 font-mono text-xs font-bold ${
+                path === t.href
+                  ? 'text-white'
+                  : 'text-neutral-500 hover:text-neutral-300'
+              }`}
+              href={t.href}
+              key={t.href}
+            >
+              {t.label}
             </Link>
-            <Link className={tab('/refs/live')} href="/refs/live">
-              live
-            </Link>
-            <Link className={tab('/refs/output')} href="/refs/output">
-              output
-            </Link>
-          </div>
-        </header>
+          ))}
+        </div>
+      </header>
 
-        {children}
-      </div>
-    </ToastProvider>
+      {children}
+      <Toasts />
+    </div>
   )
 }

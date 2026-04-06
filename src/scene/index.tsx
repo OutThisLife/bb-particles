@@ -10,7 +10,7 @@ import {
   Stats,
   TransformControls
 } from '@react-three/drei'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useFrame } from '@react-three/fiber'
 import { button, folder, levaStore, useControls } from 'leva'
 import React, { Suspense, useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
@@ -118,7 +118,7 @@ function Inner() {
         label: 'Gradient',
         max: Math.PI,
         min: -Math.PI,
-        step: 0.01,
+        step: 0.001,
         value: 0
       },
       gradientRange: {
@@ -148,7 +148,7 @@ function Inner() {
       options: ['exponential', 'linear', 'inverse'],
       value: 'exponential'
     },
-    positionCoupled: { value: true },
+    positionCoupled: { value: initVal('Scalars.positionCoupled', true) },
     positionProgression: { options: ['index', 'scale'], value: 'index' },
     repetitions: { max: 500, min: 1, step: 1, value: 75 },
     rotationFactor: { max: 1, min: -1, step: 0.01, value: -0.48 },
@@ -177,17 +177,33 @@ function Inner() {
     yStep: { label: 'Y Step', max: 2, min: -2, step: 0.01, value: 0 }
   })
 
-  const { debug, position, rotation, scale, transform } = useSmoothControls(
-    'Scene',
-    {
-      debug: { value: false },
-      position: { max: 2, min: -2, step: 0.01, value: { x: 0, y: -0.5 } },
-      rotation: { max: Math.PI, min: -Math.PI, step: 0.01, value: 0 },
-      scale: { max: 2, min: 0, step: 0.01, value: 0.4 },
-      transform: { value: false }
-    },
-    { collapsed: true, duration: 0.01 }
-  )
+  const { animate, debug, position, rotation, scale, transform } =
+    useSmoothControls(
+      'Scene',
+      {
+        animate: { value: initVal('Scene.animate', false) },
+        debug: { value: initVal('Scene.debug', false) },
+        position: { max: 2, min: -2, step: 0.01, value: { x: 0, y: -0.5 } },
+        rotation: { max: Math.PI, min: -Math.PI, step: 0.01, value: 0 },
+        scale: { max: 2, min: 0, step: 0.01, value: 0.4 },
+        transform: { value: false }
+      },
+      { collapsed: true, duration: 0.01 }
+    )
+
+  const phaseRef = useRef(0)
+
+  useFrame((_, dt) => {
+    if (!animate) return
+
+    const speed =
+      0.15 +
+      0.08 * Math.sin(phaseRef.current * 0.37) +
+      0.05 * Math.sin(phaseRef.current * 0.13 + 1.7)
+
+    phaseRef.current += dt * speed
+    gradientAngleUniform.value = gradientAngle + phaseRef.current
+  })
 
   const [reflections] = useControls(
     'Groups',
@@ -443,11 +459,12 @@ declare global {
   }
 }
 
-export const Scene = ({ headless }: { headless?: boolean }) => {
+export const Scene = ({ headless, dpr }: { headless?: boolean; dpr?: number }) => {
   useLinkableControls()
 
   return (
     <Canvas
+      dpr={dpr ?? [1, 2]}
       gl={{
         alpha: true,
         antialias: true,

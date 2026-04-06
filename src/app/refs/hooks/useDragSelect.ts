@@ -2,9 +2,6 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
-type Point = { x: number; y: number }
-type Rect = { left: number; top: number; width: number; height: number }
-
 const toRect = (a: Point, b: Point): Rect => ({
   height: Math.abs(a.y - b.y),
   left: Math.min(a.x, b.x),
@@ -28,7 +25,7 @@ export function useDragSelect<K extends string>(
   const [end, setEnd] = useState<Point | null>(null)
   const [lastClicked, setLastClicked] = useState<K | null>(null)
 
-  const pre = useRef<Set<K>>(new Set())
+  const baseline = useRef<Set<K>>(new Set())
   const draggingRef = useRef(false)
   const cellRefs = useRef<Map<K, HTMLDivElement>>(new Map())
 
@@ -38,9 +35,8 @@ export function useDragSelect<K extends string>(
     }
 
     if (e.shiftKey && lastClicked !== null) {
-      const a = keys.indexOf(lastClicked),
-        b = keys.indexOf(key)
-
+      const a = keys.indexOf(lastClicked)
+      const b = keys.indexOf(key)
       setSelected(
         prev =>
           new Set([...prev, ...keys.slice(Math.min(a, b), Math.max(a, b) + 1)])
@@ -72,7 +68,8 @@ export function useDragSelect<K extends string>(
     setEnd(pt)
     setDragging(false)
     draggingRef.current = false
-    pre.current =
+
+    baseline.current =
       e.shiftKey || e.metaKey || e.ctrlKey
         ? (new Set(selected) as Set<K>)
         : new Set()
@@ -98,7 +95,7 @@ export function useDragSelect<K extends string>(
       setOrigin(null)
       setEnd(null)
 
-      if (!draggingRef.current && pre.current.size === 0) {
+      if (!draggingRef.current && baseline.current.size === 0) {
         setSelected(new Set())
       }
 
@@ -121,12 +118,14 @@ export function useDragSelect<K extends string>(
     }
 
     const rect = toRect(origin, end)
-    const hits = new Set(pre.current)
+    const hits = new Set(baseline.current)
+
     cellRefs.current.forEach((el, key) => {
       if (intersects(rect, el.getBoundingClientRect())) {
         hits.add(key)
       }
     })
+
     setSelected(hits)
   }, [end, dragging, origin, setSelected])
 
@@ -136,4 +135,16 @@ export function useDragSelect<K extends string>(
     handleMouseDown,
     selRect: dragging && origin && end ? toRect(origin, end) : null
   }
+}
+
+interface Point {
+  x: number
+  y: number
+}
+
+interface Rect {
+  height: number
+  left: number
+  top: number
+  width: number
 }
