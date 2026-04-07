@@ -1,12 +1,13 @@
 'use client'
 
+import { Suspense } from 'react'
 import { Leva } from 'leva'
 import { usePathname, useSearchParams } from 'next/navigation'
 
 import { Footer } from '@/components'
 import { Scene } from '@/scene'
 
-export default function Index() {
+function IndexContent() {
   const headless = usePathname() === '/render'
   const params = useSearchParams()
   const dpr = Number(params.get('dpr')) || undefined
@@ -17,5 +18,13 @@ export default function Index() {
       <Scene headless={headless} dpr={dpr} />
       {!headless && <Footer />}
     </main>
+  )
+}
+
+export default function Index() {
+  return (
+    <Suspense fallback={<main />}>
+      <IndexContent />
+    </Suspense>
   )
 }

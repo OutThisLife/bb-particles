@@ -42,19 +42,14 @@ const isEntryLike = (v: unknown): v is { disabled?: boolean; value: unknown } =>
   !!v &&
   typeof v === 'object' &&
   'value' in v &&
-  Object.keys(v as Record<string, unknown>).every(
-    k => k === 'value' || k === 'disabled'
-  )
+  Object.keys(v as Record<string, unknown>).every(k => k === 'value' || k === 'disabled')
 
 const normalizeEntry = (entry: EncodedEntry): EncodedEntry => {
   let value = entry.value
   let disabled = entry.disabled
 
   while (isEntryLike(value)) {
-    if (disabled === undefined && value.disabled !== undefined) {
-      disabled = value.disabled
-    }
-
+    disabled ??= value.disabled
     value = value.value
   }
 
@@ -66,50 +61,33 @@ const normalizeParams = (params: Record<string, EncodedEntry>) =>
     Object.entries(params).map(([k, v]) => [k, normalizeEntry(v)])
   ) as Record<string, EncodedEntry>
 
-const asLevaValues = (params: Record<string, EncodedEntry>) => {
-  const out: Record<string, unknown> = {}
-
-  for (const [k, v] of Object.entries(params)) {
-    const entry = normalizeEntry(v)
-
-    if (entry.value !== undefined) {
-      out[k] = entry.value
-    }
-  }
-
-  return out
-}
-
 const applyToLeva = (params: Record<string, EncodedEntry>) => {
-  levaStore.set(asLevaValues(params), false)
+  levaStore.set(
+    Object.fromEntries(
+      Object.entries(params)
+        .map(([k, v]) => [k, normalizeEntry(v).value])
+        .filter(([, v]) => v !== undefined)
+    ),
+    false
+  )
 
   for (const [k, v] of Object.entries(params)) {
-    if (!isOptionalKey(k) || !levaStore.getInput(k)) {
-      continue
-    }
-
-    levaStore.disableInputAtPath(k, normalizeEntry(v).disabled ?? false)
+    if (isOptionalKey(k) && levaStore.getInput(k))
+      levaStore.disableInputAtPath(k, normalizeEntry(v).disabled ?? false)
   }
 }
 
-const readyNextFrames = () =>
+const readyNextFrames = () => {
+  const done = () => { window.__RENDER_READY__ = true }
+
   requestAnimationFrame(() =>
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.__RENDER_READY__ = true
-      })
+      requestAnimationFrame(done)
     })
   )
 
-const parseRawEntries = (raw: string) =>
-  normalizeParams(
-    Object.fromEntries(
-      Object.entries(JSON.parse(decodeURIComponent(raw))).map(([k, v]) => [
-        k,
-        { value: v }
-      ])
-    )
-  )
+  setTimeout(done, 200)
+}
 
 export function resetInitParams(params: Record<string, EncodedEntry>) {
   _initParams = params
@@ -117,33 +95,29 @@ export function resetInitParams(params: Record<string, EncodedEntry>) {
 }
 
 function getInitParams() {
-  if (_initParams) {
-    return _initParams
-  }
+  if (_initParams) return _initParams
+  if (typeof window === 'undefined') return {}
 
-  if (typeof window === 'undefined') {
-    return {}
-  }
+  const sp = new URLSearchParams(window.location.search)
+  const raw = sp.get('raw')
+  const c = sp.get('c')
 
-  const url = new URLSearchParams(window.location.search)
-  const raw = url.get('raw')
-  const c = url.get('c')
-
-  if (raw) {
-    try {
-      _initParams = parseRawEntries(raw)
-    } catch {
-      _initParams = {}
-    }
-  } else {
-    _initParams = c ? normalizeParams(decode(c)) : {}
+  try {
+    _initParams = raw
+      ? normalizeParams(
+          Object.fromEntries(
+            Object.entries(JSON.parse(decodeURIComponent(raw))).map(([k, v]) => [k, { value: v }])
+          )
+        )
+      : c
+        ? normalizeParams(decode(c))
+        : {}
+  } catch {
+    _initParams = {}
   }
 
   const n = countLayers(Object.keys(_initParams))
-
-  if (n > 1) {
-    $layers.set(n)
-  }
+  if (n > 1) $layers.set(n)
 
   return _initParams
 }
@@ -151,19 +125,16 @@ function getInitParams() {
 export const initVal = <T>(key: string, def: T): T =>
   (getInitParams()[key]?.value as T) ?? def
 
-export const initDisabled = (key: string, def = true): boolean => {
-  const entry = getInitParams()[key]
-
-  return entry ? (entry.disabled ?? false) : def
-}
+export const initDisabled = (key: string, def = true): boolean =>
+  getInitParams()[key] ? (getInitParams()[key]!.disabled ?? false) : def
 
 function applyParams(enc: string) {
   window.__RENDER_READY__ = false
+
   const params = normalizeParams(decode(enc))
 
   if (!Object.keys(params).length) {
     readyNextFrames()
-
     return
   }
 
@@ -171,10 +142,7 @@ function applyParams(enc: string) {
   hydrated = false
 
   const n = countLayers(Object.keys(params))
-
-  if (n >= 1) {
-    $layers.set(n)
-  }
+  if (n >= 1) $layers.set(n)
 
   applyToLeva(params)
 
@@ -185,26 +153,19 @@ function applyParams(enc: string) {
 }
 
 export default function useLinkableControls() {
-  useEffect(() => {
-    window.__updateParams = applyParams
-  }, [])
+  useEffect(() => { window.__updateParams = applyParams }, [])
 
   const data = levaStore.useStore(s => s.data)
   const layers = useStore($layers)
 
   const hash = levaStore.useStore(s =>
     Object.entries(s.data)
-      .map(
-        ([k, v]: [string, any]) =>
-          `${k}:${JSON.stringify(v?.value)}:${v?.disabled}`
-      )
+      .map(([k, v]: [string, any]) => `${k}:${JSON.stringify(v?.value)}:${v?.disabled}`)
       .join('')
   )
 
   useEffect(() => {
-    if (!data || !Object.keys(data).length) {
-      return
-    }
+    if (!data || !Object.keys(data).length) return
 
     if (!hydrated) {
       const params = getInitParams()
@@ -212,20 +173,13 @@ export default function useLinkableControls() {
       if (Object.keys(params).length) {
         applyToLeva(params)
 
-        const needLayers = countLayers(Object.keys(params))
-        const haveLayers = countLayers(Object.keys(data))
-
-        if (haveLayers < needLayers) {
+        if (countLayers(Object.keys(data)) < countLayers(Object.keys(params)))
           return
-        }
 
-        requestAnimationFrame(() => {
-          applyToLeva(params)
-        })
+        requestAnimationFrame(() => applyToLeva(params))
       }
 
       hydrated = true
-
       return
     }
 
@@ -243,6 +197,7 @@ export default function useLinkableControls() {
     enc.length < 4
       ? url.searchParams.delete('c')
       : url.searchParams.set('c', enc)
+
     history.replaceState(null, '', url.toString())
   }, [data, hash, layers])
 }
