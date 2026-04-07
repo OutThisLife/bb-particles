@@ -6,6 +6,8 @@ import { decode, encode, fromSceneParams, toEntries } from '@/utils/codec'
 
 const POOL_SIZE = 4
 const MAX_RENDERS_PER_PAGE = 50
+const MAX_TOTAL_RENDERS = 200
+const MAX_CONSECUTIVE_FAILS = 3
 const BASE_URL = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'
 
 const BROWSER_ARGS = [
@@ -16,7 +18,8 @@ const BROWSER_ARGS = [
   '--enable-features=WebGL',
   '--ignore-gpu-blocklist',
   '--disable-gpu-compositing',
-  '--js-flags=--expose-gc'
+  '--js-flags=--expose-gc',
+  '--disable-accelerated-2d-canvas'
 ]
 
 const isPrefixed = (p: Record<string, unknown>) =>
@@ -54,6 +57,9 @@ const queue: ((page: Page) => void)[] = []
 const renderCount = new WeakMap<Page, number>()
 let totalPages = 0
 let creating = 0
+let totalRenders = 0
+let consecutiveFails = 0
+let recycling = false
 
 async function ensureBrowser() {
   if (!browser?.isConnected()) {
@@ -179,9 +185,46 @@ async function discard(page: Page) {
   pump()
 }
 
+async function recycleBrowser() {
+  if (recycling) return
+  recycling = true
+
+  console.log(`[raster] recycling browser (${totalRenders} renders, ${consecutiveFails} fails)`)
+
+  try {
+    const old = browser
+    browser = null
+
+    for (const p of pool.splice(0)) {
+      try { await p.close() } catch { /* */ }
+    }
+
+    // drain waiters with errors so they retry on fresh browser
+    for (const waiter of queue.splice(0)) {
+      try { waiter(null as any) } catch { /* */ }
+    }
+
+    totalPages = 0
+    creating = 0
+    totalRenders = 0
+    consecutiveFails = 0
+
+    try { await old?.close() } catch { /* */ }
+
+    await ensureBrowser()
+  } finally {
+    recycling = false
+    pump()
+  }
+}
+
 // ── Shared render ──
 
 async function render(raw: Record<string, unknown>, size: number) {
+  if (recycling) {
+    return new Response('Recycling', { status: 503 })
+  }
+
   const page = await acquire()
   const isThumb = size > 0 && size < 1024
 
@@ -207,7 +250,15 @@ async function render(raw: Record<string, unknown>, size: number) {
       type: isThumb ? 'jpeg' : 'png'
     })
 
+    await page.evaluate(() => typeof gc === 'function' && gc()).catch(() => {})
+
+    totalRenders++
+    consecutiveFails = 0
     release(page)
+
+    if (totalRenders >= MAX_TOTAL_RENDERS) {
+      recycleBrowser()
+    }
 
     return new Response(new Uint8Array(buffer), {
       headers: {
@@ -218,6 +269,12 @@ async function render(raw: Record<string, unknown>, size: number) {
     })
   } catch {
     await discard(page)
+    totalRenders++
+    consecutiveFails++
+
+    if (consecutiveFails >= MAX_CONSECUTIVE_FAILS) {
+      recycleBrowser()
+    }
 
     return new Response('Render failed', { status: 500 })
   }
@@ -233,6 +290,20 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   const url = new URL(req.url)
+
+  if (url.searchParams.has('health')) {
+    return new Response(
+      JSON.stringify({
+        ok: !!browser?.isConnected() && consecutiveFails < MAX_CONSECUTIVE_FAILS,
+        pool: pool.length,
+        totalRenders,
+        consecutiveFails,
+        recycling
+      }),
+      { headers: { 'Content-Type': 'application/json' } }
+    )
+  }
+
   const params = url.searchParams.get('params')
 
   if (params) {
@@ -253,7 +324,6 @@ export async function GET(req: Request) {
     )
   }
 
-  // Canonical parse payload: same shape accepted by POST for exact replay.
   const entries = decode(encoded)
 
   return new Response(JSON.stringify(entries), {
