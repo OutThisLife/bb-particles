@@ -20,85 +20,6 @@ const TITLE = 'HERMES AGENT'
 const TARGET_TITLE = '150,000'
 const GLITCH_CHARS = ' ·:;+=░▒▓█'
 const GLITCH_DIGITS = '0123456789,'
-const DIGIT_SPARK_POINTS: Record<string, readonly [number, number][]> = {
-  '0': [
-    [0.22, 0.24],
-    [0.78, 0.24],
-    [0.18, 0.5],
-    [0.82, 0.5],
-    [0.22, 0.78],
-    [0.78, 0.78]
-  ],
-  '1': [
-    [0.54, 0.2],
-    [0.54, 0.45],
-    [0.54, 0.72],
-    [0.45, 0.33]
-  ],
-  '2': [
-    [0.28, 0.24],
-    [0.74, 0.25],
-    [0.63, 0.48],
-    [0.34, 0.72],
-    [0.72, 0.77]
-  ],
-  '3': [
-    [0.32, 0.24],
-    [0.74, 0.26],
-    [0.56, 0.5],
-    [0.74, 0.74],
-    [0.3, 0.76]
-  ],
-  '4': [
-    [0.3, 0.48],
-    [0.55, 0.24],
-    [0.56, 0.5],
-    [0.56, 0.76],
-    [0.78, 0.48]
-  ],
-  '5': [
-    [0.72, 0.24],
-    [0.34, 0.24],
-    [0.32, 0.5],
-    [0.7, 0.52],
-    [0.3, 0.78],
-    [0.7, 0.77]
-  ],
-  '6': [
-    [0.66, 0.24],
-    [0.3, 0.35],
-    [0.24, 0.56],
-    [0.74, 0.56],
-    [0.3, 0.78],
-    [0.72, 0.76]
-  ],
-  '7': [
-    [0.34, 0.24],
-    [0.76, 0.24],
-    [0.63, 0.5],
-    [0.5, 0.76]
-  ],
-  '8': [
-    [0.5, 0.2],
-    [0.28, 0.35],
-    [0.72, 0.35],
-    [0.5, 0.5],
-    [0.28, 0.72],
-    [0.72, 0.72]
-  ],
-  '9': [
-    [0.3, 0.24],
-    [0.72, 0.24],
-    [0.26, 0.44],
-    [0.72, 0.44],
-    [0.68, 0.68],
-    [0.36, 0.78]
-  ],
-  ',': [
-    [0.5, 0.82],
-    [0.42, 0.94]
-  ]
-}
 const TITLE_FONT_FAMILY =
   '"HermesLogo", "Collapse", system-ui, -apple-system, "Segoe UI", sans-serif'
 
@@ -616,6 +537,10 @@ export default function Page() {
     const blurCtx = blurCanvas.getContext('2d')
     const lensCanvas = document.createElement('canvas')
     const lensCtx = lensCanvas.getContext('2d')
+    const titleSparkCanvas = document.createElement('canvas')
+    const titleSparkCtx = titleSparkCanvas.getContext('2d', {
+      willReadFrequently: true
+    })
     let lastSparkAt = -Infinity
     let sparkQueue: {
       angle: number
@@ -1463,41 +1388,83 @@ export default function Page() {
             }
 
             lastTitleSparkSlot = slot
-            const ch = countChars[slot] ?? '0'
-            const glyphW = Math.max(1, ctx.measureText(ch).width)
-            const glyphX =
-              startX + slot * (slotW + tracking) + (slotW - glyphW) * 0.5
-            const metrics = ctx.measureText(ch)
-            const ascent = Math.max(
-              1,
-              metrics.actualBoundingBoxAscent || titleShadow * 0.54
-            )
-            const descent = Math.max(
-              1,
-              metrics.actualBoundingBoxDescent || titleShadow * 0.22
-            )
-            const glyphH = ascent + descent
-            const glyphY = titleY - ascent
-            const hotspots = DIGIT_SPARK_POINTS[ch] ?? [
-              [0.28, 0.26],
-              [0.72, 0.28],
-              [0.5, 0.52],
-              [0.3, 0.76],
-              [0.72, 0.74]
-            ]
-            const pt =
-              hotspots[
-                Math.floor(rand(seed + 3) * hotspots.length) % hotspots.length
-              ]
-            const jitterX = (rand(seed + 4) - 0.5) * glyphW * 0.12
-            const jitterY = (rand(seed + 5) - 0.5) * glyphH * 0.12
-            const sparkX = glyphX + glyphW * pt[0] + jitterX
-            const sparkY = glyphY + glyphH * pt[1] + jitterY
-            const sparkAngle =
-              Math.atan2(pt[1] - 0.5, pt[0] - 0.5) +
-              Math.PI / 2 +
-              (rand(seed + 6) - 0.5) * 0.26
+            let sparkX = startX + slot * (slotW + tracking) + slotW * 0.5
+            let sparkY = titleY
+            let sparkAngle = rand(seed + 6) * Math.PI * 2
             const sparkSize = lerp(0.44, 0.72, rand(seed + 7))
+
+            if (titleSparkCtx) {
+              const pad = Math.max(2, Math.ceil(titleShadow * 0.42))
+              const mapW = Math.max(2, Math.ceil(totalW + pad * 2))
+              const mapH = Math.max(2, Math.ceil(titleShadow * 1.65 + pad * 2))
+
+              if (titleSparkCanvas.width !== mapW || titleSparkCanvas.height !== mapH) {
+                titleSparkCanvas.width = mapW
+                titleSparkCanvas.height = mapH
+              }
+
+              const mapMidY = mapH * 0.5
+
+              titleSparkCtx.setTransform(1, 0, 0, 1, 0, 0)
+              titleSparkCtx.clearRect(0, 0, mapW, mapH)
+              titleSparkCtx.font = targetTitleFont
+              titleSparkCtx.textAlign = 'left'
+              titleSparkCtx.textBaseline = 'middle'
+              titleSparkCtx.fillStyle = '#ffffff'
+
+              let textX = pad
+
+              for (let i = 0; i < countChars.length; i++) {
+                const chW = Math.max(1, ctx.measureText(countChars[i]).width)
+
+                titleSparkCtx.fillText(
+                  countChars[i],
+                  textX + (slotW - chW) * 0.5,
+                  mapMidY
+                )
+                textX += slotW + tracking
+              }
+
+              const pixelData = titleSparkCtx.getImageData(0, 0, mapW, mapH).data
+              const slotX0 = pad + slot * (slotW + tracking)
+              const slotX1 = slotX0 + slotW
+              let found = false
+
+              for (let i = 0; i < 64; i++) {
+                const px = Math.min(
+                  mapW - 1,
+                  Math.max(
+                    0,
+                    Math.floor(lerp(slotX0, slotX1, rand(seed + 10 + i * 1.31)))
+                  )
+                )
+                const py = Math.min(
+                  mapH - 1,
+                  Math.max(0, Math.floor(rand(seed + 20 + i * 1.73) * mapH))
+                )
+                const a = pixelData[(py * mapW + px) * 4 + 3]
+
+                if (a > 120) {
+                  sparkX = titleX - totalW / 2 + (px - pad)
+                  sparkY = titleY + (py - mapMidY)
+                  found = true
+                  break
+                }
+              }
+
+              if (!found) {
+                sparkX =
+                  startX +
+                  slot * (slotW + tracking) +
+                  slotW * (0.35 + rand(seed + 30) * 0.3)
+                sparkY = titleY + (rand(seed + 31) - 0.5) * titleShadow * 0.18
+              }
+
+              sparkAngle =
+                Math.atan2(sparkY - titleY, sparkX - titleX) +
+                Math.PI / 2 +
+                (rand(seed + 32) - 0.5) * 0.24
+            }
 
             addSpark(9_000_000 + idx, sparkX, sparkY, sparkAngle, sparkSize)
           }
