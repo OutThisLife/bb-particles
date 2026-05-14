@@ -1013,7 +1013,9 @@ export default function Page() {
               )
             : 0
           const alpha = starCell
-            ? starTargetAlpha * starFade
+            ? reelActive
+              ? 1
+              : starTargetAlpha * starFade
             : settings.inactiveOpacity +
               sayPower * (1 - settings.inactiveOpacity)
 
@@ -1398,7 +1400,10 @@ export default function Page() {
               const mapW = Math.max(2, Math.ceil(totalW + pad * 2))
               const mapH = Math.max(2, Math.ceil(titleShadow * 1.65 + pad * 2))
 
-              if (titleSparkCanvas.width !== mapW || titleSparkCanvas.height !== mapH) {
+              if (
+                titleSparkCanvas.width !== mapW ||
+                titleSparkCanvas.height !== mapH
+              ) {
                 titleSparkCanvas.width = mapW
                 titleSparkCanvas.height = mapH
               }
@@ -1425,7 +1430,12 @@ export default function Page() {
                 textX += slotW + tracking
               }
 
-              const pixelData = titleSparkCtx.getImageData(0, 0, mapW, mapH).data
+              const pixelData = titleSparkCtx.getImageData(
+                0,
+                0,
+                mapW,
+                mapH
+              ).data
               const slotX0 = pad + slot * (slotW + tracking)
               const slotX1 = slotX0 + slotW
               let found = false
