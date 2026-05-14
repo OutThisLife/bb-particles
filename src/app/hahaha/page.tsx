@@ -1012,10 +1012,9 @@ export default function Page() {
                 clamp01((starReveal - diagIndex) / STAR_ALPHA_FADE_CELLS)
               )
             : 0
+          const reelTargetAlpha = dimStar ? 0.66 : 1
           const alpha = starCell
-            ? reelActive
-              ? 1
-              : starTargetAlpha * starFade
+            ? lerp(starTargetAlpha * starFade, reelTargetAlpha, reelProgress)
             : settings.inactiveOpacity +
               sayPower * (1 - settings.inactiveOpacity)
 
