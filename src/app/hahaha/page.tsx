@@ -20,6 +20,85 @@ const TITLE = 'HERMES AGENT'
 const TARGET_TITLE = '150,000'
 const GLITCH_CHARS = ' ·:;+=░▒▓█'
 const GLITCH_DIGITS = '0123456789,'
+const DIGIT_SPARK_POINTS: Record<string, readonly [number, number][]> = {
+  '0': [
+    [0.22, 0.24],
+    [0.78, 0.24],
+    [0.18, 0.5],
+    [0.82, 0.5],
+    [0.22, 0.78],
+    [0.78, 0.78]
+  ],
+  '1': [
+    [0.54, 0.2],
+    [0.54, 0.45],
+    [0.54, 0.72],
+    [0.45, 0.33]
+  ],
+  '2': [
+    [0.28, 0.24],
+    [0.74, 0.25],
+    [0.63, 0.48],
+    [0.34, 0.72],
+    [0.72, 0.77]
+  ],
+  '3': [
+    [0.32, 0.24],
+    [0.74, 0.26],
+    [0.56, 0.5],
+    [0.74, 0.74],
+    [0.3, 0.76]
+  ],
+  '4': [
+    [0.3, 0.48],
+    [0.55, 0.24],
+    [0.56, 0.5],
+    [0.56, 0.76],
+    [0.78, 0.48]
+  ],
+  '5': [
+    [0.72, 0.24],
+    [0.34, 0.24],
+    [0.32, 0.5],
+    [0.7, 0.52],
+    [0.3, 0.78],
+    [0.7, 0.77]
+  ],
+  '6': [
+    [0.66, 0.24],
+    [0.3, 0.35],
+    [0.24, 0.56],
+    [0.74, 0.56],
+    [0.3, 0.78],
+    [0.72, 0.76]
+  ],
+  '7': [
+    [0.34, 0.24],
+    [0.76, 0.24],
+    [0.63, 0.5],
+    [0.5, 0.76]
+  ],
+  '8': [
+    [0.5, 0.2],
+    [0.28, 0.35],
+    [0.72, 0.35],
+    [0.5, 0.5],
+    [0.28, 0.72],
+    [0.72, 0.72]
+  ],
+  '9': [
+    [0.3, 0.24],
+    [0.72, 0.24],
+    [0.26, 0.44],
+    [0.72, 0.44],
+    [0.68, 0.68],
+    [0.36, 0.78]
+  ],
+  ',': [
+    [0.5, 0.82],
+    [0.42, 0.94]
+  ]
+}
 const TITLE_FONT_FAMILY =
   '"HermesLogo", "Collapse", system-ui, -apple-system, "Segoe UI", sans-serif'
 
@@ -1384,12 +1463,41 @@ export default function Page() {
             }
 
             lastTitleSparkSlot = slot
-            const baseX = startX + slot * (slotW + tracking) + slotW * 0.5
-            const baseY = titleY + (rand(seed + 3) - 0.5) * titleShadow * 0.26
-            const sparkX = baseX + (rand(seed + 4) - 0.5) * slotW * 0.62
-            const sparkY = baseY + (rand(seed + 5) - 0.5) * titleShadow * 0.28
-            const sparkAngle = rand(seed + 6) * Math.PI * 2
-            const sparkSize = lerp(0.42, 0.74, rand(seed + 7))
+            const ch = countChars[slot] ?? '0'
+            const glyphW = Math.max(1, ctx.measureText(ch).width)
+            const glyphX =
+              startX + slot * (slotW + tracking) + (slotW - glyphW) * 0.5
+            const metrics = ctx.measureText(ch)
+            const ascent = Math.max(
+              1,
+              metrics.actualBoundingBoxAscent || titleShadow * 0.54
+            )
+            const descent = Math.max(
+              1,
+              metrics.actualBoundingBoxDescent || titleShadow * 0.22
+            )
+            const glyphH = ascent + descent
+            const glyphY = titleY - ascent
+            const hotspots = DIGIT_SPARK_POINTS[ch] ?? [
+              [0.28, 0.26],
+              [0.72, 0.28],
+              [0.5, 0.52],
+              [0.3, 0.76],
+              [0.72, 0.74]
+            ]
+            const pt =
+              hotspots[
+                Math.floor(rand(seed + 3) * hotspots.length) % hotspots.length
+              ]
+            const jitterX = (rand(seed + 4) - 0.5) * glyphW * 0.12
+            const jitterY = (rand(seed + 5) - 0.5) * glyphH * 0.12
+            const sparkX = glyphX + glyphW * pt[0] + jitterX
+            const sparkY = glyphY + glyphH * pt[1] + jitterY
+            const sparkAngle =
+              Math.atan2(pt[1] - 0.5, pt[0] - 0.5) +
+              Math.PI / 2 +
+              (rand(seed + 6) - 0.5) * 0.26
+            const sparkSize = lerp(0.44, 0.72, rand(seed + 7))
 
             addSpark(9_000_000 + idx, sparkX, sparkY, sparkAngle, sparkSize)
           }
